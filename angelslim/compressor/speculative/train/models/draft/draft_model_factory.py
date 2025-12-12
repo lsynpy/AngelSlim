@@ -124,7 +124,7 @@ class DraftModelConfig:
 
         if config_path.is_file():
             # It's a config file, load it directly
-            with open(config_path, "r", encoding="utf-8") as f:
+            with open(config_path, encoding="utf-8") as f:
                 config_dict = json.load(f)
 
             # Get architectures to determine model class
@@ -135,9 +135,7 @@ class DraftModelConfig:
             arch = architectures[0]
             if arch not in DraftModelFactory._draft_models:
                 available = DraftModelFactory.get_available_models()
-                raise ValueError(
-                    f"Unknown architecture: {arch}. Available: {available}"
-                )
+                raise ValueError(f"Unknown architecture: {arch}. Available: {available}")
 
             # Get the model class and its config class
             model_class = DraftModelFactory._draft_models[arch]

@@ -55,7 +55,7 @@ class SeedOss(BaseLLMModel):
 
         if self.quant_config.custom_observe_layers_names != "default":
             for custom_observe_name in self.quant_config.custom_observe_layers_names:
-                for default_name in observer_layers_dict.keys():
+                for default_name in observer_layers_dict:
                     if custom_observe_name not in default_name:
                         observer_layers_dict.pop(default_name)
         return observer_layers_dict
@@ -87,6 +87,4 @@ class SeedOss(BaseLLMModel):
         if self.deploy_backend in ["vllm", "huggingface"]:
             return PTQSaveVllmHF
         else:
-            raise NotImplementedError(
-                f"deploy_backend {self.deploy_backend} is not supported for saving."
-            )
+            raise NotImplementedError(f"deploy_backend {self.deploy_backend} is not supported for saving.")

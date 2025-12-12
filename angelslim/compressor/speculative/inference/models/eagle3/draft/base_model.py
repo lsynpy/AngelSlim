@@ -59,12 +59,8 @@ class BaseEagle3Drafter(nn.Module, ABC):
         self.hidden_size = config.hidden_size
         self.early_stop_method = early_stop_method
 
-        self.embed_tokens = nn.Embedding(
-            config.vocab_size, config.hidden_size, self.padding_idx
-        )
-        self.lm_head = nn.Linear(
-            config.hidden_size, config.draft_vocab_size, bias=False
-        )
+        self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
+        self.lm_head = nn.Linear(config.hidden_size, config.draft_vocab_size, bias=False)
 
         # Handle different hidden sizes between target and draft models
         hidden_size_multiplier = 3
@@ -87,9 +83,7 @@ class BaseEagle3Drafter(nn.Module, ABC):
         self.logsoftmax = nn.LogSoftmax(dim=-1)
 
         # Vocabulary mapping buffers
-        self.register_buffer(
-            "d2t", torch.zeros(config.draft_vocab_size, dtype=torch.long)
-        )
+        self.register_buffer("d2t", torch.zeros(config.draft_vocab_size, dtype=torch.long))
         self.register_buffer("t2d", torch.zeros(config.vocab_size, dtype=torch.bool))
 
         # Speculative decoding parameters
@@ -121,7 +115,7 @@ class BaseEagle3Drafter(nn.Module, ABC):
         if not os.path.exists(index_json_path):
             index_json_path = hf_hub_download(path, "model.safetensors.index.json")
 
-        with open(index_json_path, "r") as f:
+        with open(index_json_path) as f:
             index_json = json.loads(f.read())
             emb_path = index_json["weight_map"]["model.embed_tokens.weight"]
 
@@ -142,7 +136,7 @@ class BaseEagle3Drafter(nn.Module, ABC):
         if not os.path.exists(index_json_path):
             index_json_path = hf_hub_download(path, "pytorch_model.bin.index.json")
 
-        with open(index_json_path, "r") as f:
+        with open(index_json_path) as f:
             index_json = json.loads(f.read())
             emb_path = index_json["weight_map"]["model.embed_tokens.weight"]
 
@@ -156,9 +150,7 @@ class BaseEagle3Drafter(nn.Module, ABC):
 
     def init_tree(self) -> None:
         """Initialize tree structures for speculative decoding."""
-        self.tree_mask_init = torch.eye(
-            self.top_k, device=self.embed_tokens.weight.device
-        )[None, None]
+        self.tree_mask_init = torch.eye(self.top_k, device=self.embed_tokens.weight.device)[None, None]
         self.position_ids = torch.zeros(
             self.top_k, device=self.embed_tokens.weight.device, dtype=torch.long
         )
@@ -208,9 +200,7 @@ class BaseEagle3Drafter(nn.Module, ABC):
         self.reset()
 
         # Generate initial hidden states and tokens
-        last_hidden, past_key_values, early_stop_signal = self._get_initial_hidden(
-            hidden_states, input_ids
-        )
+        last_hidden, past_key_values, early_stop_signal = self._get_initial_hidden(hidden_states, input_ids)
         self.stable_kv = past_key_values
 
         # Generate first level of tokens
@@ -254,10 +244,8 @@ class BaseEagle3Drafter(nn.Module, ABC):
                 past_key_values,
             )
         # Process the final results
-        draft_tokens, retrieve_indices, tree_mask, tree_position_ids = (
-            self._finalize_results(
-                scores_list, ss_token, sample_token, parents_list, logits_processor
-            )
+        draft_tokens, retrieve_indices, tree_mask, tree_position_ids = self._finalize_results(
+            scores_list, ss_token, sample_token, parents_list, logits_processor
         )
 
         # Delete some used lists and variables to free memory
@@ -271,9 +259,7 @@ class BaseEagle3Drafter(nn.Module, ABC):
             early_stop_signal,
         )
 
-    def _get_initial_hidden(
-        self, hidden_states: Tensor, input_ids: Tensor
-    ) -> Tuple[Tensor, Any]:
+    def _get_initial_hidden(self, hidden_states: Tensor, input_ids: Tensor) -> Tuple[Tensor, Any]:
         """Get initial hidden states and past key values."""
         if hasattr(self, "stable_kv") and self.stable_kv is not None:
             kv_len = self.stable_kv[0][0].shape[2]
@@ -385,9 +371,7 @@ class BaseEagle3Drafter(nn.Module, ABC):
         tree_mask, tree_position_ids = self._build_tree_mask(top_indices, parents_list)
 
         # Generate retrieval indices
-        retrieve_indices = self._generate_retrieve_indices(
-            tree_position_ids, top_indices, parents_list
-        )
+        retrieve_indices = self._generate_retrieve_indices(tree_position_ids, top_indices, parents_list)
 
         # Apply logits processor if provided
         if logits_processor is not None:
@@ -395,9 +379,7 @@ class BaseEagle3Drafter(nn.Module, ABC):
 
         return draft_tokens[None], retrieve_indices, tree_mask, tree_position_ids
 
-    def _build_tree_mask(
-        self, top_indices: Tensor, parents_list: list
-    ) -> Tuple[Tensor, Tensor]:
+    def _build_tree_mask(self, top_indices: Tensor, parents_list: list) -> Tuple[Tensor, Tensor]:
         """Build the tree attention mask and position IDs."""
         all_parents = torch.cat(parents_list, dim=0)[top_indices // self.top_k].long()
 
@@ -434,10 +416,7 @@ class BaseEagle3Drafter(nn.Module, ABC):
 
         # Build retrieval paths for leaves
         retrieve_indices = (
-            torch.zeros(
-                leaf_num, torch.max(tree_position_ids).item() + 1, dtype=torch.long
-            )
-            - 1
+            torch.zeros(leaf_num, torch.max(tree_position_ids).item() + 1, dtype=torch.long) - 1
         )
         retrieve_indices = retrieve_indices.tolist()
 
@@ -462,6 +441,4 @@ class BaseEagle3Drafter(nn.Module, ABC):
         def custom_sort(lst):
             return [x if x >= 0 else maxitem for x in lst]
 
-        return torch.tensor(
-            sorted(retrieve_indices.tolist(), key=custom_sort), dtype=torch.long
-        )
+        return torch.tensor(sorted(retrieve_indices.tolist(), key=custom_sort), dtype=torch.long)

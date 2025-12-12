@@ -88,9 +88,7 @@ def fp8_per_token_group_quant(
 
 
 # pure torch implementation of block-wise FP8 quantization on cpu
-def fp8_per_block_quant_torch(
-    x: torch.Tensor, block_size: int = 128
-) -> Tuple[torch.Tensor, torch.Tensor]:
+def fp8_per_block_quant_torch(x: torch.Tensor, block_size: int = 128) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Pure Torch implementation of block-wise FP8 (e4m3fn) quantization.
 
@@ -143,9 +141,7 @@ def fp8_per_block_quant_torch(
 
 
 # quant function for per-block fp8
-def fp8_per_block_quant(
-    x: torch.Tensor, block_size: int = 128
-) -> Tuple[torch.Tensor, torch.Tensor]:
+def fp8_per_block_quant(x: torch.Tensor, block_size: int = 128) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Per-block FP8 quantization with automatic GPU/CPU dispatch.
 
@@ -225,9 +221,7 @@ def fp8_gemm_torch_tensor_token(
         output = output[0]
 
     if need_reshape:
-        output = output.reshape(
-            batch_size, output.shape[0] // batch_size, output.shape[1]
-        )
+        output = output.reshape(batch_size, output.shape[0] // batch_size, output.shape[1])
 
     return output
 
@@ -302,9 +296,7 @@ def fp8_gemm(
             return fp8_gemm_torch_tensor_token(A, A_scale, B, B_scale, out_dtype, bias)
         elif quant_type == QuantType.FP8_PER_BLOCK:
             # Use deepgemm accelerated blockwise fp8 GEMM
-            return fp8_gemm_deepgemm_block(
-                A, A_scale, B, B_scale, out_dtype, bias, origin_shape
-            )
+            return fp8_gemm_deepgemm_block(A, A_scale, B, B_scale, out_dtype, bias, origin_shape)
     else:
         if quant_type == QuantType.FP8_PER_BLOCK:
             # Use triton kernel for blockwise fp8 quantization

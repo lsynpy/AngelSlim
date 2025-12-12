@@ -75,7 +75,7 @@ class TextDataset(BaseDataset):
 
     def _load_jsonl_data(self, data_path: str, num_samples: int):
         line_count = 0
-        with open(data_path, "r") as f:
+        with open(data_path) as f:
             for line in f:
                 if num_samples > 0 and line_count >= num_samples:
                     break
@@ -83,9 +83,7 @@ class TextDataset(BaseDataset):
                 data = json.loads(line)
 
                 # Validate format
-                assert (
-                    "messages" in data or "input" in data or "conversations" in data
-                ), "JSON format error"
+                assert "messages" in data or "input" in data or "conversations" in data, "JSON format error"
 
                 # Prepare messages
                 messages = self._prepare_messages(data)
@@ -102,18 +100,12 @@ class TextDataset(BaseDataset):
                             thinking_data = True
                             break
                 if thinking_data:
-                    text = (
-                        self.processor.bos_token
-                        if self.processor.bos_token is not None
-                        else ""
-                    )
+                    text = self.processor.bos_token if self.processor.bos_token is not None else ""
                     for dic in messages:
                         if dic["role"] == "system":
                             text += dic["content"]
                         elif dic["role"] == "user":
-                            text = (
-                                text + "<｜User｜>" + dic["content"] + "<｜Assistant｜>"
-                            )
+                            text = text + "<｜User｜>" + dic["content"] + "<｜Assistant｜>"
                         elif dic["role"] == "assistant":
                             text = text + dic["content"] + self.processor.eos_token
 
@@ -131,9 +123,7 @@ class TextDataset(BaseDataset):
                 self.data.append(
                     {
                         "input_ids": model_inputs["input_ids"].to(self.device),
-                        "attention_mask": model_inputs["attention_mask"].to(
-                            self.device
-                        ),
+                        "attention_mask": model_inputs["attention_mask"].to(self.device),
                         "labels": labels.to(self.device),
                     }
                 )
@@ -145,14 +135,8 @@ class TextDataset(BaseDataset):
         if "messages" in data:
             messages = data["messages"]
             # Add system prompt if available
-            if (
-                "system_prompt" in data
-                and data["system_prompt"]
-                and messages[0]["role"] != "system"
-            ):
-                messages = [
-                    {"role": "system", "content": data["system_prompt"]}
-                ] + messages
+            if "system_prompt" in data and data["system_prompt"] and messages[0]["role"] != "system":
+                messages = [{"role": "system", "content": data["system_prompt"]}] + messages
         elif "conversations" in data:
             share_gpt_data = data["conversations"]
             messages = [
@@ -160,18 +144,14 @@ class TextDataset(BaseDataset):
                 {"role": "assistant", "content": share_gpt_data[1]["value"]},
             ]
             if "system" in data and data["system"]:
-                messages = [
-                    {"role": "system", "content": data["system_prompt"]}
-                ] + messages
+                messages = [{"role": "system", "content": data["system_prompt"]}] + messages
         else:
             messages = [
                 {"role": "user", "content": data["input"]},
                 {"role": "assistant", "content": data["output"]},
             ]
             if "system_prompt" in data and data["system_prompt"]:
-                messages = [
-                    {"role": "system", "content": data["system_prompt"]}
-                ] + messages
+                messages = [{"role": "system", "content": data["system_prompt"]}] + messages
 
         # Normalize role names
         for item in messages:

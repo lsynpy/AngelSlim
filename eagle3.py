@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import torch
 
 from angelslim.compressor.speculative.inference.models.eagle3 import Eagle3Model

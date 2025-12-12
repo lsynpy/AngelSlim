@@ -210,7 +210,7 @@ pip install angelslim
 也可以选择克隆代码仓库后，以可编辑的方式从源代码安装：
 
 ```shell
-cd AngelSlim && python setup.py install
+cd AngelSlim && pip install .
 ```
 
 更详细的安装说明可参考[安装文档](https://angelslim.readthedocs.io/zh-cn/latest/getting_started/installation.html)。

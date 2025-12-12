@@ -97,15 +97,9 @@ class BenchmarkEngine:
 
         # Setup result file paths
         model_id_temp = f"{self.config.model_id}-temperature-{self.config.temperature}"
-        self.eagle_file = os.path.join(
-            self.config.output_dir, f"{model_id_temp}-eagle.jsonl"
-        )
-        self.baseline_file = os.path.join(
-            self.config.output_dir, f"{model_id_temp}-baseline.jsonl"
-        )
-        self.analysis_file = os.path.join(
-            self.config.output_dir, f"{model_id_temp}-analysis.json"
-        )
+        self.eagle_file = os.path.join(self.config.output_dir, f"{model_id_temp}-eagle.jsonl")
+        self.baseline_file = os.path.join(self.config.output_dir, f"{model_id_temp}-baseline.jsonl")
+        self.analysis_file = os.path.join(self.config.output_dir, f"{model_id_temp}-analysis.json")
 
     def run_benchmark(self, mode: BenchmarkMode = BenchmarkMode.BOTH) -> Dict[str, Any]:
         """
@@ -158,16 +152,12 @@ class BenchmarkEngine:
 
         use_ray = self.config.num_gpus_total // self.config.num_gpus_per_model > 1
         get_answers_func = (
-            ray.remote(num_gpus=self.config.num_gpus_per_model)(
-                get_eagle_answers
-            ).remote
+            ray.remote(num_gpus=self.config.num_gpus_per_model)(get_eagle_answers).remote
             if use_ray
             else get_eagle_answers
         )
 
-        chunk_size = len(questions) // (
-            self.config.num_gpus_total // self.config.num_gpus_per_model
-        )
+        chunk_size = len(questions) // (self.config.num_gpus_total // self.config.num_gpus_per_model)
         ans_handles = [
             get_answers_func(
                 f"{self.config.model_id}-temperature-{self.config.temperature}",
@@ -198,16 +188,12 @@ class BenchmarkEngine:
 
         use_ray = self.config.num_gpus_total // self.config.num_gpus_per_model > 1
         get_answers_func = (
-            ray.remote(num_gpus=self.config.num_gpus_per_model)(
-                get_baseline_answers
-            ).remote
+            ray.remote(num_gpus=self.config.num_gpus_per_model)(get_baseline_answers).remote
             if use_ray
             else get_baseline_answers
         )
 
-        chunk_size = len(questions) // (
-            self.config.num_gpus_total // self.config.num_gpus_per_model
-        )
+        chunk_size = len(questions) // (self.config.num_gpus_total // self.config.num_gpus_per_model)
         ans_handles = [
             get_answers_func(
                 f"{self.config.model_id}-temperature-{self.config.temperature}",
@@ -232,9 +218,7 @@ class BenchmarkEngine:
 
         # Calculate acceptance length from Eagle results
         if os.path.exists(self.eagle_file):
-            metrics["acceptance_length"] = self._calculate_acceptance_length(
-                self.eagle_file
-            )
+            metrics["acceptance_length"] = self._calculate_acceptance_length(self.eagle_file)
 
         # Calculate speedup ratio if both files exist
         if os.path.exists(self.eagle_file) and os.path.exists(self.baseline_file):
@@ -254,7 +238,7 @@ class BenchmarkEngine:
         Returns:
             Average acceptance length
         """
-        with open(input_file, "r") as f:
+        with open(input_file) as f:
             lines = f.readlines()
 
         print(f"Number of samples: {len(lines)}")
@@ -268,9 +252,7 @@ class BenchmarkEngine:
         avg_accept_length /= len(lines)
         return avg_accept_length
 
-    def _calculate_speedup_ratio(
-        self, model_path: str, baseline_json: str, eagle_json: str
-    ) -> float:
+    def _calculate_speedup_ratio(self, model_path: str, baseline_json: str, eagle_json: str) -> float:
         """
         Calculate speedup ratio between baseline and speculative decoding.
 
@@ -286,7 +268,7 @@ class BenchmarkEngine:
 
         # Process speculative decoding results
         eagle_speeds = []
-        with open(eagle_json, "r", encoding="utf-8") as file:
+        with open(eagle_json, encoding="utf-8") as file:
             for line in file:
                 data = json.loads(line)
                 tokens = sum(data["choices"][0]["new_tokens"])
@@ -295,7 +277,7 @@ class BenchmarkEngine:
 
         # Process baseline results
         baseline_speeds = []
-        with open(baseline_json, "r", encoding="utf-8") as file:
+        with open(baseline_json, encoding="utf-8") as file:
             for line in file:
                 data = json.loads(line)
                 answers = data["choices"][0]["turns"]
@@ -349,14 +331,12 @@ class BenchmarkEngine:
         """Get question file path"""
         current_file = os.path.abspath(__file__)
         project_root = current_file.split("/AngelSlim/")[0] + "/AngelSlim"
-        return os.path.join(
-            project_root, "dataset", self.config.bench_name, "question.jsonl"
-        )
+        return os.path.join(project_root, "dataset", self.config.bench_name, "question.jsonl")
 
     def _reorg_answer_file(self, answer_file: str):
         """Sort answers by question id and remove duplicates"""
         answers = {}
-        with open(answer_file, "r") as fin:
+        with open(answer_file) as fin:
             for line in fin:
                 qid = json.loads(line)["question_id"]
                 answers[qid] = line
@@ -375,15 +355,10 @@ class BenchmarkEngine:
         if not self.results:
             return "No benchmark results available."
 
-        summary = [
-            "=== Speculative Decoding "
-            f"{self.config.bench_name.upper()} Benchmark Results ===\n"
-        ]
+        summary = [f"=== Speculative Decoding {self.config.bench_name.upper()} Benchmark Results ===\n"]
 
         if "acceptance_length" in self.results:
-            summary.append(
-                f"Average Acceptance Length: {self.results['acceptance_length']:.2f}"
-            )
+            summary.append(f"Average Acceptance Length: {self.results['acceptance_length']:.2f}")
 
         if "speedup_ratio" in self.results:
             summary.append(f"Speedup Ratio: {self.results['speedup_ratio']:.2f}x")

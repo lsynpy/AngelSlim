@@ -137,9 +137,7 @@ class BaseBackend(ABC):
         # Offset by 1 to skip embedding layer
         embed_offset = 1
 
-        selected_hiddens = [
-            hidden_states[layer_id + embed_offset] for layer_id in aux_layer_ids
-        ]
+        selected_hiddens = [hidden_states[layer_id + embed_offset] for layer_id in aux_layer_ids]
 
         return torch.cat(selected_hiddens, dim=-1)
 
@@ -164,16 +162,12 @@ class TransformersBackend(BaseBackend):
         model_kwargs = self._prepare_model_kwargs(device)
 
         # Load and configure model
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_path, **model_kwargs
-        )
+        self.model = AutoModelForCausalLM.from_pretrained(self.model_path, **model_kwargs)
         self._freeze_model_parameters()
         self.model.eval()
 
         # Load tokenizer
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            self.model_path, trust_remote_code=True
-        )
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_path, trust_remote_code=True)
 
     def _prepare_model_kwargs(self, device: str) -> dict:
         """
@@ -224,10 +218,8 @@ class TransformersBackend(BaseBackend):
             )
 
         # Extract auxiliary hidden states
-        aux_layer_ids = kwargs.get("aux_hidden_states_layer_ids", None)
-        hidden_states = self._extract_auxiliary_hidden_states(
-            outputs.hidden_states, aux_layer_ids
-        )
+        aux_layer_ids = kwargs.get("aux_hidden_states_layer_ids")
+        hidden_states = self._extract_auxiliary_hidden_states(outputs.hidden_states, aux_layer_ids)
 
         # Return hidden states and logits on the same device as input
         return hidden_states, outputs.logits.to(input_ids.device)
@@ -258,10 +250,8 @@ class TransformersBackend(BaseBackend):
             )
 
         # Extract auxiliary hidden states
-        aux_layer_ids = kwargs.get("aux_hidden_states_layer_ids", None)
-        aux_hidden_states = self._extract_auxiliary_hidden_states(
-            outputs.hidden_states, aux_layer_ids
-        )
+        aux_layer_ids = kwargs.get("aux_hidden_states_layer_ids")
+        aux_hidden_states = self._extract_auxiliary_hidden_states(outputs.hidden_states, aux_layer_ids)
 
         # Get final layer hidden states
         target_hidden_states = outputs.hidden_states[-1]
@@ -287,18 +277,14 @@ class VLMTransformersBackend(BaseBackend):
         }
         default_kwargs.update(self.kwargs)
 
-        self.model = AutoModelForImageTextToText.from_pretrained(
-            self.model_path, **default_kwargs
-        )
+        self.model = AutoModelForImageTextToText.from_pretrained(self.model_path, **default_kwargs)
 
         # Freeze the base model
         for param in self.model.parameters():
             param.requires_grad = False
         self.model.eval()
 
-        self.tokenizer = AutoProcessor.from_pretrained(
-            self.model_path, trust_remote_code=True
-        )
+        self.tokenizer = AutoProcessor.from_pretrained(self.model_path, trust_remote_code=True)
 
     def get_hidden_states_and_logits(
         self,
@@ -321,16 +307,12 @@ class VLMTransformersBackend(BaseBackend):
 
         def hook(module, args, kwargs):
             if "inputs_embeds" in kwargs and kwargs["inputs_embeds"] is not None:
-                inputs_embeds_list.append(
-                    kwargs["inputs_embeds"].clone().detach().cpu()
-                )
+                inputs_embeds_list.append(kwargs["inputs_embeds"].clone().detach().cpu())
             if "position_ids" in kwargs and kwargs["position_ids"] is not None:
                 position_ids_list.append(kwargs["position_ids"].clone().detach().cpu())
             return args, kwargs
 
-        handle = self.model.language_model.register_forward_pre_hook(
-            hook, with_kwargs=True
-        )
+        handle = self.model.language_model.register_forward_pre_hook(hook, with_kwargs=True)
 
         with torch.no_grad():
             outputs = self.model(
@@ -345,10 +327,8 @@ class VLMTransformersBackend(BaseBackend):
         position_ids = position_ids_list[0].to(input_ids.device)
 
         # Extract auxiliary hidden states
-        aux_layer_ids = kwargs.get("aux_hidden_states_layer_ids", None)
-        hidden_states = self._extract_auxiliary_hidden_states(
-            outputs.hidden_states, aux_layer_ids
-        )
+        aux_layer_ids = kwargs.get("aux_hidden_states_layer_ids")
+        hidden_states = self._extract_auxiliary_hidden_states(outputs.hidden_states, aux_layer_ids)
 
         # Return hidden states and logits on the same device as input
         return (
@@ -379,16 +359,12 @@ class VLMTransformersBackend(BaseBackend):
 
         def hook(module, args, kwargs):
             if "inputs_embeds" in kwargs and kwargs["inputs_embeds"] is not None:
-                inputs_embeds_list.append(
-                    kwargs["inputs_embeds"].clone().detach().cpu()
-                )
+                inputs_embeds_list.append(kwargs["inputs_embeds"].clone().detach().cpu())
             if "position_ids" in kwargs and kwargs["position_ids"] is not None:
                 position_ids_list.append(kwargs["position_ids"].clone().detach().cpu())
             return args, kwargs
 
-        handle = self.model.language_model.register_forward_pre_hook(
-            hook, with_kwargs=True
-        )
+        handle = self.model.language_model.register_forward_pre_hook(hook, with_kwargs=True)
 
         with torch.no_grad():
             outputs = self.model(
@@ -403,10 +379,8 @@ class VLMTransformersBackend(BaseBackend):
         position_ids = position_ids_list[0].to(input_ids.device)
 
         # Extract auxiliary hidden states
-        aux_layer_ids = kwargs.get("aux_hidden_states_layer_ids", None)
-        aux_hidden_states = self._extract_auxiliary_hidden_states(
-            outputs.hidden_states, aux_layer_ids
-        )
+        aux_layer_ids = kwargs.get("aux_hidden_states_layer_ids")
+        aux_hidden_states = self._extract_auxiliary_hidden_states(outputs.hidden_states, aux_layer_ids)
 
         # Get final layer hidden states
         target_hidden_states = outputs.hidden_states[-1]
@@ -442,7 +416,7 @@ class TargetModelWrapper:
         ...     backend="hf",
         ...     modal_type="LLM",
         ...     model_path="/path/to/model",
-        ...     dtype=torch.bfloat16
+        ...     dtype=torch.bfloat16,
         ... )
         >>> hidden_states, logits = wrapper.get_hidden_states_and_logits(input_ids)
     """
@@ -452,9 +426,7 @@ class TargetModelWrapper:
         ("hf", "VLM"): VLMTransformersBackend,
     }
 
-    def __init__(
-        self, model_path: str, modal_type: str = "LLM", backend: str = "hf", **kwargs
-    ):
+    def __init__(self, model_path: str, modal_type: str = "LLM", backend: str = "hf", **kwargs):
         """
         Initialize TargetModel with specified backend
 
@@ -543,13 +515,9 @@ class TargetModelWrapper:
             ValueError: If tokenizer is not initialized
         """
         if not hasattr(self.backend, "tokenizer"):
-            raise AttributeError(
-                f"Backend '{self.backend_name}' does not support tokenizers"
-            )
+            raise AttributeError(f"Backend '{self.backend_name}' does not support tokenizers")
         if self.backend.tokenizer is None:
-            raise ValueError(
-                f"Tokenizer not initialized for backend '{self.backend_name}'"
-            )
+            raise ValueError(f"Tokenizer not initialized for backend '{self.backend_name}'")
         return self.backend.tokenizer
 
 
@@ -581,9 +549,7 @@ def create_target_model(
 
     Example:
         >>> model = create_target_model(
-        ...     backend="hf",
-        ...     model_path="/path/to/llama-7b",
-        ...     torch_dtype=torch.float16
+        ...     backend="hf", model_path="/path/to/llama-7b", torch_dtype=torch.float16
         ... )
     """
     # Prepare common configuration
@@ -597,8 +563,7 @@ def create_target_model(
         kwargs["dtype"] = torch_dtype
     else:
         raise ValueError(
-            f"Unsupported backend: '{backend}'. "
-            f"Use one of: {list(TargetModelWrapper.BACKENDS.keys())}"
+            f"Unsupported backend: '{backend}'. Use one of: {list(TargetModelWrapper.BACKENDS.keys())}"
         )
 
     return TargetModelWrapper(backend=backend, model_path=model_path, **kwargs)

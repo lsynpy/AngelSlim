@@ -50,9 +50,7 @@ class OnlineEagle3Trainer(Eagle3Trainer):
         """
         super().__init__(draft_model=draft_model, length=length, **kwargs)
         self.target_model = target_model
-        self._aux_hidden_states_layer_ids = getattr(
-            draft_model_config, "aux_hidden_states_layer_ids", None
-        )
+        self._aux_hidden_states_layer_ids = getattr(draft_model_config, "aux_hidden_states_layer_ids", None)
 
     def prepare_data_for_draft_model(self, inputs):
         # Step 1: Extract input tensors

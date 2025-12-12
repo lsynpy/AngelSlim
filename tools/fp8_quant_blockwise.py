@@ -105,9 +105,7 @@ def create_quantized_param(param, weight_block_size=(128, 128)):
     scale_inv = scale_inv.unsqueeze(-1).unsqueeze(-1)
 
     # Quantize the weights
-    quantized_param = torch.clamp(param_value * scale_inv, min=fp8_min, max=fp8_max).to(
-        torch.float8_e4m3fn
-    )
+    quantized_param = torch.clamp(param_value * scale_inv, min=fp8_min, max=fp8_max).to(torch.float8_e4m3fn)
     quantized_param = quantized_param.permute(0, 1, 3, 2, 4)
     quantized_param = quantized_param.reshape(param_value_shape)[..., :rows, :cols]
 
@@ -120,9 +118,7 @@ def process_safetensor(rank, file_name, input_path, output_path, block_size=(128
     state_dict = {}
     index = {}
     count = 0
-    with safe_open(
-        os.path.join(input_path, file_name), framework="pt", device=f"cuda:{rank}"
-    ) as f:
+    with safe_open(os.path.join(input_path, file_name), framework="pt", device=f"cuda:{rank}") as f:
         print(f"Processing {file_name} with {len(f.keys())} weights")
         for weight_name in f.keys():
             weight = f.get_tensor(weight_name)
@@ -153,9 +149,7 @@ def process_safetensor(rank, file_name, input_path, output_path, block_size=(128
 def worker(i, file_names, input_path, output_path, block_size, return_dict):
     world_size = torch.cuda.device_count()
     for file_name in tqdm(file_names, desc=f"Worker {i}"):
-        index = process_safetensor(
-            i % world_size, file_name, input_path, output_path, block_size
-        )
+        index = process_safetensor(i % world_size, file_name, input_path, output_path, block_size)
         return_dict[file_name] = index
 
 
@@ -166,7 +160,7 @@ def main(input_path, output_path, block_size):
     model_index_file = os.path.join(input_path, "model.safetensors.index.json")
     has_index = os.path.exists(model_index_file)
     if has_index:
-        with open(model_index_file, "r") as f:
+        with open(model_index_file) as f:
             model_index = json.load(f)
         weight_map = model_index["weight_map"]
         safetensor_files = set(weight_map.values())
@@ -201,9 +195,7 @@ def main(input_path, output_path, block_size):
     del model
 
     args.num_workers = min(args.num_workers, len(safetensor_files))
-    file_subsets = [
-        safetensor_files[i :: args.num_workers] for i in range(args.num_workers)
-    ]
+    file_subsets = [safetensor_files[i :: args.num_workers] for i in range(args.num_workers)]
     mp.set_start_method("spawn", force=True)
     manager = mp.Manager()
     return_dict = manager.dict()
@@ -226,12 +218,7 @@ def main(input_path, output_path, block_size):
 
     # Copy config file
     for file in os.listdir(input_path):
-        if (
-            file.endswith(".py")
-            or file.endswith(".json")
-            or file.endswith(".md")
-            or file.endswith(".txt")
-        ):
+        if file.endswith(".py") or file.endswith(".json") or file.endswith(".md") or file.endswith(".txt"):
             src_path = os.path.join(input_path, file)
             dst_path = os.path.join(output_path, file)
             if os.path.exists(dst_path):
@@ -240,7 +227,7 @@ def main(input_path, output_path, block_size):
             shutil.copy2(src_path, dst_path)
 
     # Quantization config
-    with open(os.path.join(output_path, "config.json"), "r") as f:
+    with open(os.path.join(output_path, "config.json")) as f:
         config = json.load(f)
     config["quantization_config"] = {
         "activation_scheme": "dynamic",
@@ -263,7 +250,7 @@ if __name__ == "__main__":
     parser.add_argument("--output_path", type=str, default="")
     args = parser.parse_args()
     print(args)
-    with open(os.path.join(args.input_path, "config.json"), "r", encoding="utf8") as fp:
+    with open(os.path.join(args.input_path, "config.json"), encoding="utf8") as fp:
         json_data = json.load(fp)
         print(json_data)
     if "quantization_config" in json_data.keys():

@@ -37,9 +37,7 @@ class CompressorFactory:
             """Register a class using its own name as the key"""
             key = compress_cls.__name__
             if key in cls._compress_methods:
-                print_info(
-                    f"Compression method '{key}' already exists, will be overwritten."
-                )
+                print_info(f"Compression method '{key}' already exists, will be overwritten.")
             cls._compress_methods[key] = compress_cls
             return compress_cls
 
@@ -75,9 +73,7 @@ class CompressorFactory:
         for name in names:
             if name not in cls._compress_methods:
                 available = list(cls._compress_methods.keys())
-                raise ValueError(
-                    f"Compress method '{name}' not registered. Available: {available}"
-                )
+                raise ValueError(f"Compress method '{name}' not registered. Available: {available}")
             compressor.append(cls._compress_methods[name](model, slim_config))
         return compressor
 

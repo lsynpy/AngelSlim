@@ -49,8 +49,7 @@ class DatasetBuilderFactory:
         if (training_mode, modal_type) not in cls._builders:
             available = list(cls._builders.keys())
             raise ValueError(
-                f"Unknown training_mode '{training_mode}'"
-                f" modal_type '{modal_type}'. Available: {available}"
+                f"Unknown training_mode '{training_mode}' modal_type '{modal_type}'. Available: {available}"
             )
 
         builder_class = cls._builders[(training_mode, modal_type)]

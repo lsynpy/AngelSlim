@@ -23,6 +23,7 @@ from huggingface_hub import hf_hub_download
 from safetensors.torch import load_file
 from transformers import AutoConfig, AutoTokenizer
 
+from ......utils.logger import get_logger
 from ....utils import (
     EWMAScorePredictor,
     MeanScorePredictor,
@@ -39,6 +40,8 @@ from .configuration_eagle3_model import Eagle3Config
 from .draft import Llama3Eagle3Drafter
 from .target import LlamaForCausalLM as KVLlamaForCausalLM
 from .target import Qwen3ForCausalLM as KVQwen3ForCausalLM
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -161,9 +164,7 @@ class GenerationManager:
             stop_token_id = self.tokenizer.convert_tokens_to_ids("<|eot_id|>")
 
         logits_processor = (
-            prepare_logits_processor(
-                temperature=config.temperature, top_p=config.top_p, top_k=config.top_k
-            )
+            prepare_logits_processor(temperature=config.temperature, top_p=config.top_p, top_k=config.top_k)
             if config.temperature > 1e-5
             else None
         )
@@ -175,10 +176,8 @@ class GenerationManager:
             past_key_values = model.past_key_values
             model.current_length_data.zero_()
         else:
-            past_key_values, past_key_values_data, current_length_data = (
-                initialize_past_key_values(
-                    model.base_model, max_length=config.max_length
-                )
+            past_key_values, past_key_values_data, current_length_data = initialize_past_key_values(
+                model.base_model, max_length=config.max_length
             )
             model.past_key_values = past_key_values
             model.past_key_values_data = past_key_values_data
@@ -203,9 +202,8 @@ class GenerationManager:
         stop_token_id: Optional[int],
     ) -> bool:
         """Check if generation should stop"""
-        if stop_token_id is not None:
-            if torch.any(input_ids[0, input_len:] == stop_token_id):
-                return True
+        if stop_token_id is not None and torch.any(input_ids[0, input_len:] == stop_token_id):
+            return True
 
         if torch.any(input_ids[0, input_len:] == self.tokenizer.eos_token_id):
             return True
@@ -213,10 +211,7 @@ class GenerationManager:
         if new_token > config.max_new_tokens:
             return True
 
-        if input_ids.shape[1] > config.max_length:
-            return True
-
-        return False
+        return input_ids.shape[1] > config.max_length
 
     def get_padding_token(self, device: torch.device) -> torch.Tensor:
         """Get or create padding token"""
@@ -261,6 +256,11 @@ class Eagle3Model(nn.Module):
     ) -> "Eagle3Model":
         """Create Eagle3Model from pretrained components"""
         # Load base model and tokenizer
+        logger.info(
+            "Loading base model from %s, eagle model from %s",
+            base_model_path,
+            eagle_model_path,
+        )
         if not step_split_tokens:
             step_split_tokens = [
                 "\n\n",
@@ -272,9 +272,7 @@ class Eagle3Model(nn.Module):
             ]
         base_model = ModelLoader.load_base_model(base_model_path, **kwargs)
         tokenizer = AutoTokenizer.from_pretrained(base_model_path, use_fast=False)
-        tokenizer.stop_think_id = tokenizer.encode(
-            stop_think_token, add_special_tokens=False
-        )[0]
+        tokenizer.stop_think_id = tokenizer.encode(stop_think_token, add_special_tokens=False)[0]
         tokenizer.step_split_ids = []
         for s in step_split_tokens:
             t = tokenizer.encode(s, add_special_tokens=False)
@@ -313,9 +311,7 @@ class Eagle3Model(nn.Module):
 
         # Auto-select optimal token count if needed
         if total_token == -1 and enable_benchmark:
-            total_token = PerformanceBenchmark.auto_select_total_token(
-                base_model, config.vocab_size
-            )
+            total_token = PerformanceBenchmark.auto_select_total_token(base_model, config.vocab_size)
             eagle_layer.total_tokens = total_token - 1
 
         return cls(base_model, tokenizer, eagle_layer, early_stop_method)
@@ -377,10 +373,8 @@ class Eagle3Model(nn.Module):
         padding = self.generation_manager.get_padding_token(input_ids.device)
 
         # Prefill phase
-        draft_tokens, retrieve_indices, tree_mask, tree_position_ids, logits, _, _ = (
-            initialize_tree(
-                input_ids, self, state.past_key_values, state.logits_processor
-            )
+        draft_tokens, retrieve_indices, tree_mask, tree_position_ids, logits, _, _ = initialize_tree(
+            input_ids, self, state.past_key_values, state.logits_processor
         )
 
         accept_length_list = []
@@ -427,9 +421,7 @@ class Eagle3Model(nn.Module):
                 logits, candidates, state.logits_processor
             )
 
-            new_token_ids = (
-                candidates[None, best_candidate, : accept_length + 1].view(-1).tolist()
-            )
+            new_token_ids = candidates[None, best_candidate, : accept_length + 1].view(-1).tolist()
             if is_thinking and self.tokenizer.stop_think_id in new_token_ids:
                 is_thinking = False
             if is_thinking and self.early_stop_method:
@@ -459,9 +451,7 @@ class Eagle3Model(nn.Module):
                     print(f"Early Stop: scores={scores}")
 
             accept_length_list.append(
-                accept_length.item()
-                if torch.is_tensor(accept_length)
-                else accept_length
+                accept_length.item() if torch.is_tensor(accept_length) else accept_length
             )
 
             # Update inference inputs
@@ -501,11 +491,7 @@ class Eagle3Model(nn.Module):
             ):
                 break
 
-        return (
-            (state.input_ids, state.new_token, step, accept_length_list)
-            if log
-            else state.input_ids
-        )
+        return (state.input_ids, state.new_token, step, accept_length_list) if log else state.input_ids
 
     @torch.no_grad()
     def naive_generate(
@@ -532,9 +518,7 @@ class Eagle3Model(nn.Module):
 
         state = self.generation_manager.prepare_generation(self, input_ids, config)
 
-        outputs = self.base_model(
-            state.input_ids, past_key_values=state.past_key_values, use_cache=True
-        )
+        outputs = self.base_model(state.input_ids, past_key_values=state.past_key_values, use_cache=True)
 
         max_decode_steps = config.max_length - self.eagle_layer.total_tokens - 10
 
@@ -546,9 +530,7 @@ class Eagle3Model(nn.Module):
             else:
                 input_id = outputs.logits[:, -1:].argmax(dim=-1)
 
-            outputs = self.base_model(
-                input_id, use_cache=True, past_key_values=state.past_key_values
-            )
+            outputs = self.base_model(input_id, use_cache=True, past_key_values=state.past_key_values)
             state.input_ids = torch.cat([state.input_ids, input_id], dim=-1)
             state.new_token += 1
 

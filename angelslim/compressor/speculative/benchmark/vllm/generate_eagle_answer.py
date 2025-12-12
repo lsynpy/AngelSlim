@@ -101,9 +101,7 @@ class EvaluationConfig:
 
         current_file = os.path.abspath(__file__)
         project_root = current_file.split("/AngelSlim/")[0] + "/AngelSlim"
-        answer_file = os.path.join(
-            project_root, "output", args.bench_name, self.model_id, ".jsonl"
-        )
+        answer_file = os.path.join(project_root, "output", args.bench_name, self.model_id, ".jsonl")
         print(f"Answer file path: {answer_file}")
         return answer_file
 
@@ -132,7 +130,7 @@ def initialize_model(config: EvaluationConfig, args: argparse.Namespace):
         disable_log_stats=False,
         speculative_config=speculative_config,
     )
-    print(f'CUDA_VISIBLE_DEVICES: {os.environ.get("CUDA_VISIBLE_DEVICES")}')
+    print(f"CUDA_VISIBLE_DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES')}")
     return llm
 
 
@@ -145,9 +143,7 @@ def process_conversation_turn(
 ) -> Dict[str, Any]:
     """Process a single conversation turn"""
     conv.append({"role": "user", "content": qs})
-    conversation = tokenizer.apply_chat_template(
-        conv, tokenize=False, add_generation_prompt=True
-    )
+    conversation = tokenizer.apply_chat_template(conv, tokenize=False, add_generation_prompt=True)
 
     sampling_params = vllm.SamplingParams(**kwargs)
 
@@ -250,10 +246,7 @@ def get_model_answers(
     if questions:
         warmup_model(llm, tokenizer, questions[0], temperature, config.max_tokens)
 
-    print(
-        f"Generating {len(questions)} answers to {answer_file}, "
-        f"batch_size={config.batch_size}"
-    )
+    print(f"Generating {len(questions)} answers to {answer_file}, batch_size={config.batch_size}")
     print(
         f"SamplingParams: "
         f"temperature={temperature}, "
@@ -388,7 +381,7 @@ def run_evaluation(config: EvaluationConfig, args: argparse.Namespace) -> List[A
 def reorg_answer_file(answer_file: str) -> None:
     """Sort answers by question id and remove duplicates"""
     answers = {}
-    with open(answer_file, "r") as fin:
+    with open(answer_file) as fin:
         for line in fin:
             qid = json.loads(line)["question_id"]
             answers[qid] = line
@@ -401,30 +394,16 @@ def reorg_answer_file(answer_file: str) -> None:
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments"""
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--eagle-model-path", type=str, required=True, help="Path to Eagle draft model"
-    )
+    parser.add_argument("--eagle-model-path", type=str, required=True, help="Path to Eagle draft model")
     parser.add_argument("--base-model-path", type=str, required=True)
     parser.add_argument("--model-id", type=str, default="")
-    parser.add_argument(
-        "--bench-name", type=str, default="mt_bench", help="Benchmark question set name"
-    )
-    parser.add_argument(
-        "--question-begin", type=int, help="Begin index of questions (debug)"
-    )
-    parser.add_argument(
-        "--question-end", type=int, help="End index of questions (debug)"
-    )
+    parser.add_argument("--bench-name", type=str, default="mt_bench", help="Benchmark question set name")
+    parser.add_argument("--question-begin", type=int, help="Begin index of questions (debug)")
+    parser.add_argument("--question-end", type=int, help="End index of questions (debug)")
     parser.add_argument("--answer-file", type=str, help="Output answer file path")
-    parser.add_argument(
-        "--max-new-token", type=int, default=1024, help="Max new generated tokens"
-    )
-    parser.add_argument(
-        "--num-choices", type=int, default=1, help="Number of completion choices"
-    )
-    parser.add_argument(
-        "--num-gpus-per-model", type=int, default=1, help="GPUs per model"
-    )
+    parser.add_argument("--max-new-token", type=int, default=1024, help="Max new generated tokens")
+    parser.add_argument("--num-choices", type=int, default=1, help="Number of completion choices")
+    parser.add_argument("--num-gpus-per-model", type=int, default=1, help="GPUs per model")
     parser.add_argument("--num-gpus-total", type=int, default=1, help="Total GPUs")
     parser.add_argument(
         "--batch-size",

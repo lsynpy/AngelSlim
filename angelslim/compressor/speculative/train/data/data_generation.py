@@ -13,9 +13,7 @@ from angelslim.utils.lazy_imports import openai
 from .data_utils import convert_sharegpt_data, convert_ultrachat_data
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -75,9 +73,7 @@ class DataGenerator:
         self.temperature = get_random_temperature()
         self.max_tokens = max_tokens
 
-    def _convert_messages(
-        self, messages: List[Dict]
-    ) -> tuple[List[Dict], List[Dict], List[Dict]]:
+    def _convert_messages(self, messages: List[Dict]) -> tuple[List[Dict], List[Dict], List[Dict]]:
         """
         Convert ShareGPT format messages to OpenAI format.
 
@@ -101,9 +97,7 @@ class DataGenerator:
 
         return converted_messages, messages
 
-    def _generate_response(
-        self, client, messages: List[Dict], **kwargs
-    ) -> Optional[str]:
+    def _generate_response(self, client, messages: List[Dict], **kwargs) -> Optional[str]:
         """
         Generate a response using the OpenAI API.
 
@@ -123,9 +117,7 @@ class DataGenerator:
                 messages=messages,
                 max_tokens=self.max_tokens,
                 temperature=self.temperature,
-                extra_body={
-                    "chat_template_kwargs": {"enable_thinking": enable_thinking}
-                },
+                extra_body={"chat_template_kwargs": {"enable_thinking": enable_thinking}},
             )
 
             return response.choices[0].message.content.strip()
@@ -214,7 +206,7 @@ def count_existing_lines(file_path: str) -> int:
         return 0
 
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             return len(f.readlines())
     except Exception as e:
         logger.error(f"Failed to count existing lines: {e}")
@@ -250,9 +242,7 @@ def data_generation_work_flow(args):
 
     # Initialize client pool
     try:
-        client_pool = OpenAIClientPool(
-            base_port=args.base_port, max_clients=args.max_clients
-        )
+        client_pool = OpenAIClientPool(base_port=args.base_port, max_clients=args.max_clients)
     except Exception as e:
         logger.error(f"Failed to initialize client pool: {e}")
         return
@@ -272,18 +262,13 @@ def data_generation_work_flow(args):
         if start_idx > 0:
             logger.info(f"Resuming from index {start_idx}")
         logger.info(
-            f"Processing {len(current_dataset) - start_idx} "
-            f"samples with {args.num_threads} threads"
+            f"Processing {len(current_dataset) - start_idx} samples with {args.num_threads} threads"
         )
 
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=args.num_threads
-        ) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=args.num_threads) as executor:
             futures = []
 
-            for idx, row in enumerate(
-                current_dataset.select(range(start_idx, len(current_dataset)))
-            ):
+            for idx, row in enumerate(current_dataset.select(range(start_idx, len(current_dataset)))):
                 future = executor.submit(
                     generator.generate_conversation,
                     row["conversations"],

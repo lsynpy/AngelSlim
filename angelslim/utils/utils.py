@@ -144,7 +144,7 @@ def get_hf_config(model_path) -> dict:
     else:
         config_path = cached_file(model_path, "config.json")
 
-    with open(config_path, "r", encoding="utf8") as fp:
+    with open(config_path, encoding="utf8") as fp:
         json_data = json.load(fp)
         return json_data
 
@@ -158,9 +158,7 @@ def get_hf_model_path(model_path) -> str:
 
 
 def common_prefix(str1, str2):
-    return "".join(
-        x[0] for x in takewhile(lambda x: x[0] == x[1], zip(str1, str2))
-    ).rpartition(".")[0]
+    return "".join(x[0] for x in takewhile(lambda x: x[0] == x[1], zip(str1, str2))).rpartition(".")[0]
 
 
 def get_package_info(package_name: str) -> dict:
@@ -173,9 +171,7 @@ def get_package_info(package_name: str) -> dict:
         try:
             package = __import__(package_name)
             path = Path(package.__path__[0]).parent
-            commit_hash = subprocess.check_output(
-                ["git", "rev-parse", "HEAD"], cwd=path, text=True
-            ).strip()
+            commit_hash = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=path, text=True).strip()
             info["version"] = commit_hash
             info["source"] = "git"
         except Exception:

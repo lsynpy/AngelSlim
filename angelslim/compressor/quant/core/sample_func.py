@@ -38,8 +38,6 @@ class EMASampler:
         else:
             v_ema = self.ema_beta * self.sampled[layer_name] + (1.0 - self.ema_beta) * x
             self.sampled[layer_name] = v_ema
-            v_ema_corr = v_ema / float(
-                (1.0 - np.power(self.ema_beta, self.ema_step[layer_name] + 1.0))
-            )
+            v_ema_corr = v_ema / float(1.0 - np.power(self.ema_beta, self.ema_step[layer_name] + 1.0))
             self.ema_step[layer_name] += 1
             return v_ema_corr

@@ -61,7 +61,7 @@ pip install angelslim[all]
 
 ```shell
 cd AngelSlim
-python setup.py install
+pip install .
 ```
 
 ## 指定环境变量

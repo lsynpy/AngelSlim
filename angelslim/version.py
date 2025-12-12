@@ -12,7 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .engine import Engine  # noqa: F401
-from .version import __version__
+import subprocess
 
-__all__ = ["Engine", "__version__"]
+TOOLS_VERSION = None
+
+if "main" in subprocess.getoutput("git branch"):
+    TOOLS_VERSION = "0.0.0_dev"
+else:
+    tag_list = subprocess.getoutput("git tag").split("\n")
+    TOOLS_VERSION = tag_list[-1]
+
+__version__ = TOOLS_VERSION

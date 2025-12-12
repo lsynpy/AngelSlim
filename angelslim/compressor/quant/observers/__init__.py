@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .abs_max_activation import AbsmaxPerchannelObserver  # noqa: F401
-from .abs_max_activation import AbsmaxPertensorObserver  # noqa: F401
-from .abs_max_activation import AbsMaxTokenWiseActObserver  # noqa: F401; noqa: F401
+from .abs_max_activation import (
+    AbsmaxPerchannelObserver,  # noqa: F401
+    AbsmaxPertensorObserver,  # noqa: F401
+    AbsMaxTokenWiseActObserver,  # noqa: F401; noqa: F401
+)
 from .abs_max_weight import AbsMaxChannelWiseWeightObserver  # noqa: F401
 from .base_observer import BaseObserver, ParentObserver  # noqa: F401
 from .ema_activation import EMAObserver  # noqa: F401

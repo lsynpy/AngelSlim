@@ -288,16 +288,12 @@ class CompressionConfig:
 
         # Ensure name is now a list
         if not isinstance(self.name, list):
-            raise TypeError(
-                f"`name` must be a string or a list of strings, got {type(self.name)}"
-            )
+            raise TypeError(f"`name` must be a string or a list of strings, got {type(self.name)}")
 
         # Validate all elements in the list are strings
         for n in self.name:
             if not isinstance(n, str):
-                raise TypeError(
-                    f"All elements in `name` must be strings, found {type(n)}"
-                )
+                raise TypeError(f"All elements in `name` must be strings, found {type(n)}")
 
         # Further validate against predefined enumeration
         try:
@@ -375,7 +371,7 @@ class SlimConfigParser:
             ValueError: On invalid configuration or unsupported methods
         """
         try:
-            with open(yaml_path, "r") as f:
+            with open(yaml_path) as f:
                 config_dict = yaml.safe_load(f)
         except FileNotFoundError:
             print(f"Warning: Config file '{yaml_path}' not found. Using defaults.")
@@ -409,14 +405,11 @@ class SlimConfigParser:
         elif isinstance(compress_name, list):
             compress_names = compress_name
         else:
-            raise TypeError(
-                f"Compress method must be a str or list[str], got {type(compress_name)}"
-            )
+            raise TypeError(f"Compress method must be a str or list[str], got {type(compress_name)}")
         for name in compress_names:
             if name not in self.supported_methods:
                 raise ValueError(
-                    f"Unsupported compression method: {name}. "
-                    f"Supported methods: {self.supported_methods}"
+                    f"Unsupported compression method: {name}. Supported methods: {self.supported_methods}"
                 )
 
         # Initialize compression config
@@ -430,9 +423,7 @@ class SlimConfigParser:
                 quant_method = quant_dict.get("name")
 
                 # Get supported quantization methods (assuming similar enum exists)
-                if (
-                    quant_method not in self.supported_quant_methods
-                ):  # Keep existing or update similarly
+                if quant_method not in self.supported_quant_methods:  # Keep existing or update similarly
                     raise ValueError(
                         f"Unsupported quantization method: {quant_method}. "
                         f"Supported: {self.supported_quant_methods}"
@@ -454,9 +445,7 @@ class SlimConfigParser:
                 )
 
         if compression_conf.need_dataset and not dataset_conf:
-            raise ValueError(
-                "Compressor requires dataset, but 'dataset' section is missing in yaml."
-            )
+            raise ValueError("Compressor requires dataset, but 'dataset' section is missing in yaml.")
 
         # Global properties
         global_config = self._get_global_config(config_dict, model_conf, dataset_conf)
@@ -475,9 +464,7 @@ class SlimConfigParser:
             infer_config=inference_conf,
         )
 
-    def _get_global_config(
-        self, config_dict, model_conf, dataset_conf=None
-    ) -> GlobalConfig:
+    def _get_global_config(self, config_dict, model_conf, dataset_conf=None) -> GlobalConfig:
         """
         Extract global configuration settings from the provided dictionary.
 
@@ -564,16 +551,14 @@ def parse_json_full_config(json_file_path: str) -> FullConfig:
     Returns:
         Fully populated FullConfig instance containing all configuration sections
     """
-    with open(json_file_path, "r") as f:
+    with open(json_file_path) as f:
         config_data = json.load(f)
 
     # Parse model configuration section
     model_config = ModelConfig(**config_data["model_config"])
 
     # Parse compression configuration section
-    comp_config = parse_json_compression_config_section(
-        config_data["compression_config"]
-    )
+    comp_config = parse_json_compression_config_section(config_data["compression_config"])
 
     # Parse other configuration sections with default fallbacks
     dataset_config, global_config, infer_config = None, None, None

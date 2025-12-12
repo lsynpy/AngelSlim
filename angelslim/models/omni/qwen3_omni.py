@@ -65,14 +65,10 @@ class Qwen_Omni(BaseLLMModel):
             )
 
         # Load tokenizer
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            model_path, trust_remote_code=trust_remote_code
-        )
+        self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=trust_remote_code)
 
         # Load processor
-        self.processor = AutoProcessor.from_pretrained(
-            model_path, trust_remote_code=trust_remote_code
-        )
+        self.processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=trust_remote_code)
 
     def get_observer_layers(self):
         names = [
@@ -99,7 +95,7 @@ class Qwen_Omni(BaseLLMModel):
 
         if self.quant_config.custom_observe_layers_names != "default":
             for custom_observe_name in self.quant_config.custom_observe_layers_names:
-                for default_name in observer_layers_dict.keys():
+                for default_name in observer_layers_dict:
                     if custom_observe_name not in default_name:
                         observer_layers_dict.pop(default_name)
         return observer_layers_dict
@@ -128,9 +124,7 @@ class Qwen_Omni(BaseLLMModel):
         print_info(f"device is {device}")
         if dataloader is not None:
             with torch.no_grad():
-                for batch in tqdm(
-                    dataloader, desc="calibrating...", total=len(dataloader)
-                ):
+                for batch in tqdm(dataloader, desc="calibrating...", total=len(dataloader)):
                     inputs = {k: v.to(device) for k, v in batch.items()}
                     try:
                         text_ids, audio = self.model.generate(
@@ -152,6 +146,4 @@ class Qwen_Omni(BaseLLMModel):
         if self.deploy_backend in ["vllm", "huggingface"]:
             return PTQVLMSaveVllmHF
         else:
-            raise NotImplementedError(
-                f"deploy_backend {self.deploy_backend} is not supported for saving."
-            )
+            raise NotImplementedError(f"deploy_backend {self.deploy_backend} is not supported for saving.")

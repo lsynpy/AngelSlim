@@ -28,9 +28,7 @@ from ..chat_templates import ChatTemplateType, template_manager
 
 class DatasetBuilder(metaclass=ABCMeta):
     @abstractmethod
-    def build_dataset(
-        self, datapath: str, num_proc: int = 8, shuffle: bool = True, **kwargs
-    ) -> Dataset:
+    def build_dataset(self, datapath: str, num_proc: int = 8, shuffle: bool = True, **kwargs) -> Dataset:
         pass
 
     @abstractmethod
@@ -95,7 +93,7 @@ class OnlineDatasetBuilder(DatasetBuilder):
         rank0_print(f"\n{BOLD}Statistics:{RESET}")
         rank0_print(f"Total tokens: {total_tokens}")
         rank0_print(f"Training tokens: {training_tokens} ({training_ratio:.2f}%)")
-        rank0_print(f"Ignored tokens: {ignored_tokens} ({100-training_ratio:.2f}%)")
+        rank0_print(f"Ignored tokens: {ignored_tokens} ({100 - training_ratio:.2f}%)")
 
         # Display token-by-token visualization
         rank0_print(f"\n{BOLD}Token-by-token visualization:{RESET}")
@@ -173,9 +171,7 @@ class OnlineDatasetBuilder(DatasetBuilder):
 
         for i in range(len(examples["id"])):
             try:
-                processed_example = self._process_single_conversation(
-                    examples["conversations"][i]
-                )
+                processed_example = self._process_single_conversation(examples["conversations"][i])
 
                 if processed_example is not None:
                     for key, value in processed_example.items():
@@ -190,9 +186,7 @@ class OnlineDatasetBuilder(DatasetBuilder):
 
         return new_examples
 
-    def _process_single_conversation(
-        self, conversation_data: List[Dict]
-    ) -> Optional[Dict]:
+    def _process_single_conversation(self, conversation_data: List[Dict]) -> Optional[Dict]:
         if not conversation_data or not isinstance(conversation_data, list):
             return None
 
@@ -242,17 +236,12 @@ class OnlineDatasetBuilder(DatasetBuilder):
             return None
 
     # Copied from https://github.com/NickL77/BaldEagle/blob/master/generate_data/generate_data.py # noqa: E501
-    def _create_loss_mask_from_offsets(
-        self, conversation: str, offsets: torch.Tensor
-    ) -> torch.Tensor:
+    def _create_loss_mask_from_offsets(self, conversation: str, offsets: torch.Tensor) -> torch.Tensor:
         loss_mask = torch.zeros(len(offsets), dtype=torch.long)
 
         # Find all assistant response spans
         assistant_pattern = (
-            re.escape(self.assistant_header)
-            + r"(.*?)(?="
-            + re.escape(self.user_header)
-            + "|$)"
+            re.escape(self.assistant_header) + r"(.*?)(?=" + re.escape(self.user_header) + "|$)"
         )
 
         for match in re.finditer(assistant_pattern, conversation, re.DOTALL):
@@ -262,7 +251,6 @@ class OnlineDatasetBuilder(DatasetBuilder):
 
             # Mark tokens that overlap with assistant response
             for idx, (token_start, token_end) in enumerate(offsets):
-
                 # Check if token overlaps with assistant response span
                 if not (token_end <= response_start or token_start > response_end):
                     loss_mask[idx] = 1
@@ -287,11 +275,7 @@ class OnlineDatasetBuilder(DatasetBuilder):
         # Filter and validate conversation turns
         valid_turns = []
         for turn in source:
-            if (
-                not isinstance(turn, dict)
-                or "role" not in turn
-                or "content" not in turn
-            ):
+            if not isinstance(turn, dict) or "role" not in turn or "content" not in turn:
                 continue
 
             role = turn["role"]

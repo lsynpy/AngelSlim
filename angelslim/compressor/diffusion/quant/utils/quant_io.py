@@ -21,7 +21,7 @@ __all__ = ["load_fp8_scales", "load_quantized_model", "save_quantized_model"]
 
 
 def load_fp8_scales(
-    quant_scales: Optional[Union[str, Dict[str, torch.Tensor]]]
+    quant_scales: Optional[Union[str, Dict[str, torch.Tensor]]],
 ) -> Dict[str, torch.Tensor]:
     """Load FP8 quant scales from dict, file, or dir. Prefer .safetensors."""
     if quant_scales is None:
@@ -54,14 +54,10 @@ def load_fp8_scales(
             if os.path.isfile(pth_path):
                 print(f"Loaded scale map from {pth_path}")
                 return torch.load(pth_path)
-            raise FileNotFoundError(
-                f"Quant scale file not found: {pth_path} or {safetensors_path}"
-            )
+            raise FileNotFoundError(f"Quant scale file not found: {pth_path} or {safetensors_path}")
         raise FileNotFoundError(f"quant_scales path does not exist: {quant_scales}")
 
-    raise ValueError(
-        f"Invalid quant_scales type: {type(quant_scales)}. Only str (path) or dict."
-    )
+    raise ValueError(f"Invalid quant_scales type: {type(quant_scales)}. Only str (path) or dict.")
 
 
 def save_quantized_model(model: torch.nn.Module, save_path: str, fp8_scales_map: Dict):
@@ -76,9 +72,7 @@ def save_quantized_model(model: torch.nn.Module, save_path: str, fp8_scales_map:
         try:
             os.makedirs(save_path, exist_ok=True)
         except Exception as e:
-            raise RuntimeError(
-                f"Cannot create directory for save_path: {save_path}. Error: {e}"
-            )
+            raise RuntimeError(f"Cannot create directory for save_path: {save_path}. Error: {e}")
 
     try:
         # If Hugging Face style, use save_pretrained
@@ -101,9 +95,7 @@ def save_quantized_model(model: torch.nn.Module, save_path: str, fp8_scales_map:
         logger.info(f"Saved scales map to {scale_save_path}")
 
     except Exception as e:
-        raise RuntimeError(
-            f"Failed to save model and scales map to {save_path}. Error: {e}"
-        )
+        raise RuntimeError(f"Failed to save model and scales map to {save_path}. Error: {e}")
 
 
 def load_quantized_model(model_class, save_path: str, device: str = "cpu"):
@@ -147,8 +139,7 @@ def load_quantized_model(model_class, save_path: str, device: str = "cpu"):
             return model
         else:
             raise FileNotFoundError(
-                f"Model file not found at {save_path}. "
-                "Expected 'model.safetensors' or 'pytorch_model.bin'"
+                f"Model file not found at {save_path}. Expected 'model.safetensors' or 'pytorch_model.bin'"
             )
 
     except Exception as e:

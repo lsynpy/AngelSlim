@@ -31,9 +31,7 @@ class OfflineVLMEagle3Trainer(Eagle3Trainer):
     avoiding the need for online target model inference.
     """
 
-    def __init__(
-        self, draft_model: nn.Module, target_head: nn.Module, length: int, **kwargs
-    ):
+    def __init__(self, draft_model: nn.Module, target_head: nn.Module, length: int, **kwargs):
         """
         Initialize the OnlineEagle3Trainer.
 
@@ -45,9 +43,7 @@ class OfflineVLMEagle3Trainer(Eagle3Trainer):
         super().__init__(draft_model=draft_model, length=length, **kwargs)
         self.target_head = target_head
 
-    def prepare_data_for_draft_model(
-        self, inputs: Dict[str, torch.Tensor]
-    ) -> Dict[str, torch.Tensor]:
+    def prepare_data_for_draft_model(self, inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         """
         Prepare data for draft model training from offline-generated inputs.
 
@@ -86,8 +82,8 @@ class OfflineVLMEagle3Trainer(Eagle3Trainer):
         target_logits = self.target_head(inputs["target_hiddens"])
         loss_mask = inputs["loss_mask"]
         input_ids = inputs["input_ids"]
-        inputs_embeds = inputs.get("inputs_embeds", None)
-        position_ids = inputs.get("position_ids", None)
+        inputs_embeds = inputs.get("inputs_embeds")
+        position_ids = inputs.get("position_ids")
 
         # Apply right padding and move tensors to correct device
         target_logits = padding(target_logits, left=False).to(input_ids.device)

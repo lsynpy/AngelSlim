@@ -53,8 +53,7 @@ def post_process(weight, w_bit, group_size, scales=None, zeros=None):
     for idx in range(in_features):
         intweight.append(
             torch.round(
-                (weight.data[:, idx] + scale_zeros[idx // group_size])
-                / scales[idx // group_size]
+                (weight.data[:, idx] + scale_zeros[idx // group_size]) / scales[idx // group_size]
             ).to(torch.int)[:, None]
         )
     intweight = torch.cat(intweight, dim=1)
@@ -126,13 +125,9 @@ def create_quantized_param(
     assert torch.isnan(scales).sum() == 0
     assert torch.isnan(w).sum() == 0
     if inplace:
-        (
-            (w.div_(scales).round_().add_(zeros)).clamp_(min_int, max_int).sub_(zeros)
-        ).mul_(scales)
+        ((w.div_(scales).round_().add_(zeros)).clamp_(min_int, max_int).sub_(zeros)).mul_(scales)
     else:
-        w = (
-            torch.clamp(torch.round(w / scales) + zeros, min_int, max_int) - zeros
-        ) * scales
+        w = (torch.clamp(torch.round(w / scales) + zeros, min_int, max_int) - zeros) * scales
     assert torch.isnan(w).sum() == 0
     w = w.reshape(org_w_shape)
     if get_scale_zp:
@@ -154,9 +149,7 @@ def process_safetensor(
 ):
     state_dict = {}
     index = {}
-    with safe_open(
-        os.path.join(input_path, file_name), framework="pt", device=f"cuda:{rank}"
-    ) as f:
+    with safe_open(os.path.join(input_path, file_name), framework="pt", device=f"cuda:{rank}") as f:
         print(f"Processing {file_name} with {len(f.keys())} weights")
         for weight_name in f.keys():
             weight = f.get_tensor(weight_name)
@@ -228,7 +221,7 @@ def worker(
 def main(input_path, output_path, group_size, bit, zero_point, exclude_patterns=None):
     os.makedirs(output_path, exist_ok=True)
     model_index_file = os.path.join(input_path, "model.safetensors.index.json")
-    with open(model_index_file, "r") as f:
+    with open(model_index_file) as f:
         model_index = json.load(f)
     weight_map = model_index["weight_map"]
     safetensor_files = set(weight_map.values())
@@ -245,9 +238,7 @@ def main(input_path, output_path, group_size, bit, zero_point, exclude_patterns=
                 if k.endswith("weight_scale_inv"):
                     weight_scale_invs[k] = v
 
-    file_subsets = [
-        safetensor_files[i :: args.num_workers] for i in range(args.num_workers)
-    ]
+    file_subsets = [safetensor_files[i :: args.num_workers] for i in range(args.num_workers)]
     mp.set_start_method("spawn", force=True)
     manager = mp.Manager()
     return_dict = manager.dict()
@@ -291,7 +282,7 @@ def main(input_path, output_path, group_size, bit, zero_point, exclude_patterns=
             print(f"cp {src_path} {dst_path}")
             shutil.copy2(src_path, dst_path)
 
-    with open(os.path.join(output_path, "config.json"), "r") as f:
+    with open(os.path.join(output_path, "config.json")) as f:
         config = json.load(f)
     config["quantization_config"] = {
         "bits": bit,

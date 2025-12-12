@@ -107,14 +107,10 @@ class DatasetManager:
             ValueError: If required paths are not provided
         """
         # Create offline datasets (from .ckpt files)
-        offline_train_dataset, offline_eval_dataset, offline_data_collator = (
-            self._create_offline_datasets()
-        )
+        offline_train_dataset, offline_eval_dataset, offline_data_collator = self._create_offline_datasets()
 
         # Create online datasets (from raw JSON data) if tokenizer is provided
-        online_train_dataset, online_eval_dataset, online_data_collator = (
-            self._create_online_datasets()
-        )
+        online_train_dataset, online_eval_dataset, online_data_collator = self._create_online_datasets()
 
         if self.data_args.training_mode == "online":
             data_collator = online_data_collator
@@ -200,16 +196,12 @@ class DatasetManager:
             Tuple of (train_dataset, eval_dataset)
         """
         # Create train dataset
-        train_dataset = self.offline_dataset_builder.build_dataset(
-            self.data_args.train_hidden_path
-        )
+        train_dataset = self.offline_dataset_builder.build_dataset(self.data_args.train_hidden_path)
 
         # Create eval dataset if path is provided
         eval_dataset = None
         if self.data_args.eval_hidden_path is not None:
-            eval_dataset = self.offline_dataset_builder.build_dataset(
-                self.data_args.eval_hidden_path
-            )
+            eval_dataset = self.offline_dataset_builder.build_dataset(self.data_args.eval_hidden_path)
 
         data_collator = self.offline_dataset_builder.get_data_collator()
 

@@ -37,7 +37,7 @@ class LazyModule:
         _submodules (dict): Cache for LazyModule instances of submodules
 
     Example:
-        >>> ray = LazyModule('ray', 'speculative')
+        >>> ray = LazyModule("ray", "speculative")
         >>> # The actual import happens here on first attribute access
         >>> ray.init()
     """
@@ -125,9 +125,7 @@ class LazyModule:
                 return lazy_submodule
             except ImportError:
                 # If submodule import fails, re-raise the original AttributeError
-                raise AttributeError(
-                    f"module '{self._module_name}' has no attribute '{name}'"
-                )
+                raise AttributeError(f"module '{self._module_name}' has no attribute '{name}'")
 
 
 class LazyAttribute:
@@ -210,6 +208,4 @@ qwen_vl_utils = LazyModule("qwen_vl_utils", "multimodal")
 qwen_omni_utils = LazyModule("qwen_omni_utils", "multimodal")
 
 # --- HunyuanVL related lazy imports ---
-HunYuanVLForConditionalGeneration = LazyAttribute(
-    "transformers", "HunYuanVLForConditionalGeneration"
-)
+HunYuanVLForConditionalGeneration = LazyAttribute("transformers", "HunYuanVLForConditionalGeneration")

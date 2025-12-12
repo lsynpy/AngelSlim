@@ -61,9 +61,7 @@ class SlimModelFactory:
         """Create an instance of the specified model"""
         if model_name not in cls.registry:
             available = ", ".join(cls.registry.keys())
-            raise ValueError(
-                f"Unknown model: '{model_name}'. Available models: {available}"
-            )
+            raise ValueError(f"Unknown model: '{model_name}'. Available models: {available}")
 
         return cls.registry[model_name](
             model=model,
@@ -76,9 +74,7 @@ class SlimModelFactory:
         """Get the class for a registered model"""
         if model_name not in cls.registry:
             available = ", ".join(cls.registry.keys())
-            raise ValueError(
-                f"Unknown model: '{model_name}'. Available models: {available}"
-            )
+            raise ValueError(f"Unknown model: '{model_name}'. Available models: {available}")
         return cls.registry[model_name]
 
     @classmethod
@@ -91,7 +87,5 @@ class SlimModelFactory:
         """Get all model classes for a specific series"""
         if model_name not in cls.registry:
             available = ", ".join(cls.registry.keys())
-            raise ValueError(
-                f"Unknown model: '{model_name}'. Available models: {available}"
-            )
+            raise ValueError(f"Unknown model: '{model_name}'. Available models: {available}")
         return cls.series_registry.get(model_name, [])

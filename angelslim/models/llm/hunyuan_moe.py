@@ -49,9 +49,7 @@ class HunyuanMoE(BaseLLMModel):
             r"model\.layers\.\d+\.mlp\.experts\.\d+\.down_proj",
         ]
 
-        observer_layers_dict = find_layers(
-            self.model, layers=self.observer_layer_classes
-        )
+        observer_layers_dict = find_layers(self.model, layers=self.observer_layer_classes)
 
         compiled_patterns = [re.compile(pattern) for pattern in expert_pattern]
 
@@ -60,8 +58,7 @@ class HunyuanMoE(BaseLLMModel):
             for k, v in observer_layers_dict.items()
             if k.startswith(self.block_name)
             and (
-                any(name in k for name in names)
-                or any(pattern.search(k) for pattern in compiled_patterns)
+                any(name in k for name in names) or any(pattern.search(k) for pattern in compiled_patterns)
             )
         }
 
@@ -87,6 +84,4 @@ class HunyuanMoE(BaseLLMModel):
         if self.deploy_backend in ["vllm", "huggingface"]:
             return PTQSaveVllmHF
         else:
-            raise NotImplementedError(
-                f"deploy_backend {self.deploy_backend} is not supported for saving."
-            )
+            raise NotImplementedError(f"deploy_backend {self.deploy_backend} is not supported for saving.")

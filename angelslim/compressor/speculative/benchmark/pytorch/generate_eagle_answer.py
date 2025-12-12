@@ -95,7 +95,7 @@ def initialize_model(config: EvaluationConfig) -> Eagle3Model:
     )
     model.eval()
     print(f"Model training state: {model.training}")
-    print(f'CUDA VISIBLE DEVICES: {os.environ.get("CUDA_VISIBLE_DEVICES")}')
+    print(f"CUDA VISIBLE DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES')}")
     return model
 
 
@@ -187,9 +187,7 @@ def generate_answer_for_question(
     return choices
 
 
-def warmup_model(
-    model: Eagle3Model, tokenizer: Any, question: Dict[str, Any], temperature: float
-) -> None:
+def warmup_model(model: Eagle3Model, tokenizer: Any, question: Dict[str, Any], temperature: float) -> None:
     """Warm up the model before actual evaluation"""
     for _ in range(3):
         torch.manual_seed(0)
@@ -219,9 +217,7 @@ def get_model_answers(
     os.makedirs(os.path.dirname(answer_file), exist_ok=True)
 
     for question in tqdm(questions):
-        choices = generate_answer_for_question(
-            model, tokenizer, question, num_choices, temperature
-        )
+        choices = generate_answer_for_question(model, tokenizer, question, num_choices, temperature)
 
         with open(os.path.expanduser(answer_file), "a") as fout:
             ans_json = {
@@ -267,7 +263,7 @@ def run_evaluation(config: EvaluationConfig, args: argparse.Namespace) -> None:
 def reorg_answer_file(answer_file: str) -> None:
     """Sort answers by question id and remove duplicates"""
     answers = {}
-    with open(answer_file, "r") as fin:
+    with open(answer_file) as fin:
         for line in fin:
             qid = json.loads(line)["question_id"]
             answers[qid] = line
@@ -287,34 +283,18 @@ def parse_args() -> argparse.Namespace:
         help="Path to the weights (local folder or Hugging Face repo ID)",
     )
     parser.add_argument("--base-model-path", type=str, default="")
-    parser.add_argument(
-        "--load-in-8bit", action="store_false", help="Use 8-bit quantization"
-    )
+    parser.add_argument("--load-in-8bit", action="store_false", help="Use 8-bit quantization")
     parser.add_argument("--model-id", type=str, default="")
-    parser.add_argument(
-        "--bench-name", type=str, default="mt_bench", help="Benchmark question set name"
-    )
-    parser.add_argument(
-        "--question-begin", type=int, help="Begin index of questions (debug)"
-    )
-    parser.add_argument(
-        "--question-end", type=int, help="End index of questions (debug)"
-    )
+    parser.add_argument("--bench-name", type=str, default="mt_bench", help="Benchmark question set name")
+    parser.add_argument("--question-begin", type=int, help="Begin index of questions (debug)")
+    parser.add_argument("--question-end", type=int, help="End index of questions (debug)")
     parser.add_argument("--answer-file", type=str, help="Output answer file path")
-    parser.add_argument(
-        "--max-new-token", type=int, default=1024, help="Max new generated tokens"
-    )
-    parser.add_argument(
-        "--total-token", type=int, default=60, help="Total nodes in draft tree"
-    )
+    parser.add_argument("--max-new-token", type=int, default=1024, help="Max new generated tokens")
+    parser.add_argument("--total-token", type=int, default=60, help="Total nodes in draft tree")
     parser.add_argument("--depth", type=int, default=5)
     parser.add_argument("--top-k", type=int, default=10)
-    parser.add_argument(
-        "--num-choices", type=int, default=1, help="Number of completion choices"
-    )
-    parser.add_argument(
-        "--num-gpus-per-model", type=int, default=1, help="GPUs per model"
-    )
+    parser.add_argument("--num-choices", type=int, default=1, help="Number of completion choices")
+    parser.add_argument("--num-gpus-per-model", type=int, default=1, help="GPUs per model")
     parser.add_argument("--num-gpus-total", type=int, default=1, help="Total GPUs")
     parser.add_argument("--max-gpu-memory", type=str, help="Max GPU memory per GPU")
     parser.add_argument("--temperature", type=float, default=1.0)

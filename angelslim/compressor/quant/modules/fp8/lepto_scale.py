@@ -49,14 +49,10 @@ class AutoLayerScale:
 
             inp = inp.to(layers[0].weight.device)
             if self.merge_samples:
-                act_abs_max = (
-                    inp.abs().reshape(-1, inp.shape[-1]).mean(0).reshape(1, -1)
-                )
+                act_abs_max = inp.abs().reshape(-1, inp.shape[-1]).mean(0).reshape(1, -1)
             else:
                 all_inp = inp
-                act_abs_max = (
-                    all_inp.abs().reshape(-1, all_inp.shape[-1]).mean(0).reshape(1, -1)
-                )
+                act_abs_max = all_inp.abs().reshape(-1, all_inp.shape[-1]).mean(0).reshape(1, -1)
                 del all_inp
 
             print_info(f"[auto scale] {layer_name} act_abs_max: {act_abs_max}")
@@ -169,9 +165,7 @@ class AutoLayerScale:
         sorted_indices = torch.argsort(tensor.abs())
         closest_indices = sorted_indices[n]
 
-        cut_np_fp8w1 = max(
-            orig_fp8w[closest_indices].float().abs(), get_fp_maxval(bits=8) / 7
-        )
+        cut_np_fp8w1 = max(orig_fp8w[closest_indices].float().abs(), get_fp_maxval(bits=8) / 7)
 
         step = (get_fp_maxval(bits=8) - cut_np_fp8w1) / self.search_step
         break_point = min(cut_np_fp8w1 + (step * (ratio + 1)), get_fp_maxval(bits=8))
@@ -231,18 +225,14 @@ class AutoLayerScale:
                 )
 
             for j in range(act.shape[0]):
-                origin_out[j, :, :] = self._get_out(
-                    layer_name, act[j, :, :].unsqueeze(0), block, cache
-                )
+                origin_out[j, :, :] = self._get_out(layer_name, act[j, :, :].unsqueeze(0), block, cache)
             print_info(f"origin_out.shape:{origin_out.shape}")
             org_w = []
             for layer in layers:
                 org_w.append(layer.weight.clone().cpu())
 
             for ratio in range(8, 21):
-                adapt_scale = self.lepto_qdq_fp8_tensor(
-                    act.unsqueeze(0).view(-1), ratio
-                ).unsqueeze(0)
+                adapt_scale = self.lepto_qdq_fp8_tensor(act.unsqueeze(0).view(-1), ratio).unsqueeze(0)
                 handles = []
                 for layer in layers:
                     handles.append(
@@ -256,9 +246,7 @@ class AutoLayerScale:
                     new_out[j, :, :] = self._get_out(layer_name, new_act, block, cache)
 
                 loss = self.loss_function(origin_out, new_out).to(torch.float32)
-                print_info(
-                    "ratio: {}, adscale: {}, loss: {}".format(ratio, adapt_scale, loss)
-                )
+                print_info("ratio: {}, adscale: {}, loss: {}".format(ratio, adapt_scale, loss))
                 if loss < best_error:
                     best_error = loss
                     best_ratio = ratio

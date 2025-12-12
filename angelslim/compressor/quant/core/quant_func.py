@@ -23,9 +23,7 @@ from .metrics import mse_loss
 
 
 @torch.no_grad()
-def pseudo_quantize_tensor(
-    w, w_bit=4, zero_point=True, q_group_size=-1, inplace=False, get_scale_zp=False
-):
+def pseudo_quantize_tensor(w, w_bit=4, zero_point=True, q_group_size=-1, inplace=False, get_scale_zp=False):
     org_w_shape = w.shape
     if q_group_size > 0:
         assert org_w_shape[-1] % q_group_size == 0
@@ -51,13 +49,9 @@ def pseudo_quantize_tensor(
     assert torch.isnan(w).sum() == 0
 
     if inplace:
-        (
-            (w.div_(scales).round_().add_(zeros)).clamp_(min_int, max_int).sub_(zeros)
-        ).mul_(scales)
+        ((w.div_(scales).round_().add_(zeros)).clamp_(min_int, max_int).sub_(zeros)).mul_(scales)
     else:
-        w = (
-            torch.clamp(torch.round(w / scales) + zeros, min_int, max_int) - zeros
-        ) * scales
+        w = (torch.clamp(torch.round(w / scales) + zeros, min_int, max_int) - zeros) * scales
     assert torch.isnan(w).sum() == 0
 
     w = w.reshape(org_w_shape)
@@ -68,9 +62,7 @@ def pseudo_quantize_tensor(
         return w
 
 
-def quantize_weight_per_tensor_fp8(
-    tensor: torch.Tensor, scale: torch.Tensor
-) -> Tuple[torch.Tensor, float]:
+def quantize_weight_per_tensor_fp8(tensor: torch.Tensor, scale: torch.Tensor) -> Tuple[torch.Tensor, float]:
     finfo = torch.finfo(torch.float8_e4m3fn)
 
     qweight = (tensor / scale).clamp(min=finfo.min, max=finfo.max)
@@ -81,9 +73,7 @@ def quantize_weight_per_tensor_fp8(
     return qweight, scale
 
 
-def quantize_activation_per_tensor_fp8(
-    tensor: torch.Tensor, scale: float
-) -> torch.Tensor:
+def quantize_activation_per_tensor_fp8(tensor: torch.Tensor, scale: float) -> torch.Tensor:
     finfo = torch.finfo(torch.float8_e4m3fn)
     qweight = (tensor / scale).clamp(min=finfo.min, max=finfo.max)
     return qweight.to(torch.float8_e4m3fn)
@@ -92,9 +82,7 @@ def quantize_activation_per_tensor_fp8(
 def gemm_fp8(act, act_scale, weight, weight_scale, bias, out_dtype):
     if act.numel() == 0:
         # Deal with empty tensors (triggeted by empty MoE experts)
-        return torch.empty(
-            size=(0, weight.shape[0]), dtype=out_dtype, device=act.device
-        )
+        return torch.empty(size=(0, weight.shape[0]), dtype=out_dtype, device=act.device)
 
     # TODO: Disable native fp8 gemm for now, always just dequantize
     # native_fp8_support = (
@@ -118,9 +106,7 @@ def gemm_fp8(act, act_scale, weight, weight_scale, bias, out_dtype):
             bias=bias,
         )
         if need_reshape:
-            output = output.reshape(
-                batch_size, output.shape[0] // batch_size, output.shape[1]
-            )
+            output = output.reshape(batch_size, output.shape[0] // batch_size, output.shape[1])
     else:
         output = torch.nn.functional.linear(
             act.to(out_dtype) * act_scale.to(out_dtype),
@@ -131,9 +117,7 @@ def gemm_fp8(act, act_scale, weight, weight_scale, bias, out_dtype):
 
 
 @torch.no_grad()
-def quantize_weight_int(
-    x: torch.Tensor, scales: torch.Tensor, bits=8
-) -> Tuple[torch.Tensor, float]:
+def quantize_weight_int(x: torch.Tensor, scales: torch.Tensor, bits=8) -> Tuple[torch.Tensor, float]:
     if scales.ndim == 2:  # weight group-wise
         scales = torch.repeat_interleave(scales, x.shape[1] // scales.shape[1], dim=-1)
     bnt = (1 << (bits - 1)) - 1
@@ -270,9 +254,7 @@ def get_fp_search_maxval(x, bits=8, mantissa_bit=3, sign_bits=1):
     for scale in range(1, 1000, 1):
         scale /= 100
         new_x = x / scale
-        quant_dequant_x = quantize_to_fp8(
-            new_x, bits=bits, mantissa_bit=mantissa_bit, sign_bits=sign_bits
-        )
+        quant_dequant_x = quantize_to_fp8(new_x, bits=bits, mantissa_bit=mantissa_bit, sign_bits=sign_bits)
         quant_dequant_x *= scale
         cur_loss = mse_loss(x, quant_dequant_x)
         if cur_loss <= calibration_loss:
@@ -298,9 +280,7 @@ def quantize_to_fp8(x, bits=8, mantissa_bit=3, sign_bits=1):
     minval = -maxval
     minval = -maxval if sign_bits == 1 else torch.zeros_like(maxval)
     input_clamp = torch.min(torch.max(x, minval), maxval)
-    log_scales = torch.clamp(
-        (torch.floor(torch.log2(torch.abs(input_clamp)) + bias)).detach(), 1.0
-    )
+    log_scales = torch.clamp((torch.floor(torch.log2(torch.abs(input_clamp)) + bias)).detach(), 1.0)
     log_scales = 2.0 ** (log_scales - m - bias.float())
     # dequant
     qdq_out = torch.round(input_clamp / log_scales) * log_scales
@@ -312,9 +292,7 @@ def tensor_quant_dequant_fp8(x, scale, bits=8, mantissa_bit=3, sign_bits=1):
     for _ in range(len(x.shape) - 1):
         scale = scale.unsqueeze(-1)
     new_x = x / scale
-    quant_dequant_x = quantize_to_fp8(
-        new_x, bits=bits, mantissa_bit=mantissa_bit, sign_bits=sign_bits
-    )
+    quant_dequant_x = quantize_to_fp8(new_x, bits=bits, mantissa_bit=mantissa_bit, sign_bits=sign_bits)
     quant_dequant_x *= scale
     return quant_dequant_x
 
@@ -354,9 +332,7 @@ def weight_dequant_kernel(x_ptr, s_ptr, y_ptr, M, N, BLOCK_SIZE: tl.constexpr):
 # This function is copied from DeepSeek-V3 (MIT License):
 # Copyright (c) 2023 DeepSeek-AI
 # Original source: https://github.com/deepseek-ai/DeepSeek-V3
-def weight_dequant(
-    x: torch.Tensor, s: torch.Tensor, block_size: int = 128
-) -> torch.Tensor:
+def weight_dequant(x: torch.Tensor, s: torch.Tensor, block_size: int = 128) -> torch.Tensor:
     """
     Dequantizes the given weight tensor using the provided scale tensor.
 
@@ -409,9 +385,7 @@ def weight_quant(x_ptr, y_ptr, s_ptr, M, N, BLOCK_SIZE: tl.constexpr):
     tl.store(s_ptr + pid_m * n + pid_n, scale)
 
 
-def per_block_weight_quant(
-    x: torch.Tensor, block_size: int = 128
-) -> Tuple[torch.Tensor, torch.Tensor]:
+def per_block_weight_quant(x: torch.Tensor, block_size: int = 128) -> Tuple[torch.Tensor, torch.Tensor]:
     """Quantizes FP32 weight tensor to FP8 format using block-wise quantization."""
     assert x.is_contiguous()
     assert x.dim() == 2
@@ -460,9 +434,7 @@ def reduce_block_padding(input: torch.Tensor, block_sizes: dict, pad_value: floa
                 # For dimension pos_dim, the right padding is at index:
                 # (num_dims - 1 - pos_dim)*2 + 1.
                 pad_index = (num_dims - 1 - pos_dim) * 2
-                pad[pad_index + 1] = (
-                    pad_amt  # Set padding on the right side of the target dimension
-                )
+                pad[pad_index + 1] = pad_amt  # Set padding on the right side of the target dimension
 
                 padded_tensor = F.pad(padded_tensor, pad, value=pad_value)
 

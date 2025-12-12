@@ -43,15 +43,12 @@ class HunyuanDense(BaseLLMModel):
             "mlp.down_proj",
             "mlp.gate_and_up_proj",
         ]
-        observer_layers_dict = find_layers(
-            self.model, layers=self.observer_layer_classes
-        )
+        observer_layers_dict = find_layers(self.model, layers=self.observer_layer_classes)
 
         observer_layers_dict = {
             k: v
             for k, v in observer_layers_dict.items()
-            if k.startswith(self.block_name)
-            and k.split(".")[-2] + "." + k.split(".")[-1] in names
+            if k.startswith(self.block_name) and k.split(".")[-2] + "." + k.split(".")[-1] in names
         }
         if self.quant_config.custom_observe_layers_names != "default":
             for custom_observe_name in self.quant_config.custom_observe_layers_names:
@@ -64,6 +61,4 @@ class HunyuanDense(BaseLLMModel):
         if self.deploy_backend in ["vllm", "huggingface"]:
             return PTQSaveVllmHF
         else:
-            raise NotImplementedError(
-                f"deploy_backend {self.deploy_backend} is not supported for saving."
-            )
+            raise NotImplementedError(f"deploy_backend {self.deploy_backend} is not supported for saving.")

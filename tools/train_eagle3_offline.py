@@ -167,9 +167,7 @@ def parse_args():
         required=True,
         help="Output directory for model checkpoints",
     )
-    training_group.add_argument(
-        "--optim", type=str, default="adamw_torch", help="Optimizer to use"
-    )
+    training_group.add_argument("--optim", type=str, default="adamw_torch", help="Optimizer to use")
     training_group.add_argument(
         "--training_time_test_length",
         type=int,
@@ -180,10 +178,7 @@ def parse_args():
         "--model_max_length",
         type=int,
         default=2048,
-        help=(
-            "Maximum sequence length. "
-            "Sequences will be right padded (and possibly truncated)."
-        ),
+        help=("Maximum sequence length. Sequences will be right padded (and possibly truncated)."),
     )
     training_group.add_argument(
         "--per_device_train_batch_size",
@@ -201,10 +196,7 @@ def parse_args():
         "--gradient_accumulation_steps",
         type=int,
         default=1,
-        help=(
-            "Number of updates steps to accumulate before "
-            "performing a backward/update pass"
-        ),
+        help=("Number of updates steps to accumulate before performing a backward/update pass"),
     )
     training_group.add_argument(
         "--num_train_epochs",
@@ -212,45 +204,27 @@ def parse_args():
         default=3,
         help="Total number of training epochs to perform",
     )
-    training_group.add_argument(
-        "--learning_rate", type=float, default=5e-5, help="Initial learning rate"
-    )
-    training_group.add_argument(
-        "--weight_decay", type=float, default=0.0, help="Weight decay to apply"
-    )
-    training_group.add_argument(
-        "--warmup_steps", type=int, default=0, help="Number of steps for warmup"
-    )
-    training_group.add_argument(
-        "--warmup_ratio", type=float, default=0.0, help="Ratio of warmup steps"
-    )
-    training_group.add_argument(
-        "--logging_steps", type=int, default=10, help="Log every X updates steps"
-    )
+    training_group.add_argument("--learning_rate", type=float, default=5e-5, help="Initial learning rate")
+    training_group.add_argument("--weight_decay", type=float, default=0.0, help="Weight decay to apply")
+    training_group.add_argument("--warmup_steps", type=int, default=0, help="Number of steps for warmup")
+    training_group.add_argument("--warmup_ratio", type=float, default=0.0, help="Ratio of warmup steps")
+    training_group.add_argument("--logging_steps", type=int, default=10, help="Log every X updates steps")
     training_group.add_argument(
         "--save_steps",
         type=float,
         default=500,
         help="Save checkpoint every X updates steps",
     )
-    training_group.add_argument(
-        "--eval_steps", type=int, default=500, help="Run evaluation every X steps"
-    )
+    training_group.add_argument("--eval_steps", type=int, default=500, help="Run evaluation every X steps")
     training_group.add_argument(
         "--save_total_limit",
         type=int,
         default=None,
         help="Limit the total amount of checkpoints",
     )
-    training_group.add_argument(
-        "--deepspeed", type=str, default=None, help="DeepSpeed config file"
-    )
-    training_group.add_argument(
-        "--fp16", action="store_true", help="Whether to use fp16 training"
-    )
-    training_group.add_argument(
-        "--bf16", action="store_true", help="Whether to use bf16 training"
-    )
+    training_group.add_argument("--deepspeed", type=str, default=None, help="DeepSpeed config file")
+    training_group.add_argument("--fp16", action="store_true", help="Whether to use fp16 training")
+    training_group.add_argument("--bf16", action="store_true", help="Whether to use bf16 training")
     training_group.add_argument(
         "--save_strategy", type=str, default="no", help="Save strategy for checkpoints"
     )
@@ -264,9 +238,7 @@ def parse_args():
             "'polynomial', 'constant', 'constant_with_warmup'"
         ),
     )
-    training_group.add_argument(
-        "--run_name", type=str, default=None, help="Run name for tracking"
-    )
+    training_group.add_argument("--run_name", type=str, default=None, help="Run name for tracking")
     training_group.add_argument(
         "--report_to",
         type=str,
@@ -287,9 +259,7 @@ def train():
     rank0_print("Loading draft model...")
     draft_model_config = DraftModelConfig.from_file(args.draft_model_config_path)
     draft_model = create_draft_model(draft_model_config)
-    draft_model.load_embed_weights(
-        args.target_model_name_or_path, args.embed_weight_key
-    )
+    draft_model.load_embed_weights(args.target_model_name_or_path, args.embed_weight_key)
     draft_model.freeze_embed_weights()
     rank0_print("Draft model loaded successfully")
 
@@ -313,8 +283,7 @@ def train():
     rank0_print("Creating datasets...")
     rank0_print("- Offline mode: Loading pre-computed hidden states from .ckpt files")
     rank0_print(
-        "- Online mode: Processing raw conversation data "
-        f"(chat template: {args.chat_template_type})"
+        f"- Online mode: Processing raw conversation data (chat template: {args.chat_template_type})"
     )
 
     dataset_manager = DatasetManager(
@@ -348,10 +317,7 @@ def train():
         )
         rank0_print("Vocabulary mapping built successfully")
     else:
-        rank0_print(
-            "Warning: No online training dataset available, "
-            "skipping vocab mapping build"
-        )
+        rank0_print("Warning: No online training dataset available, skipping vocab mapping build")
 
     # Create a TrainingArguments object for the trainer
     # Organize training arguments by category

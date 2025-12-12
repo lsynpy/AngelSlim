@@ -53,7 +53,7 @@ def draw_fp8_scale_fig(model_path, save_path):
                 k_spllit = k.split("layers", 1)
                 num_layer = int(k_spllit[-1].split(".", 2)[1])
                 OP = k_spllit[-1].split(".", 2)[-1]
-                if OP not in weight_dict.keys():
+                if OP not in weight_dict:
                     weight_dict[OP] = [(num_layer, model_weight[k].data.float())]
                 else:
                     weight_dict[OP].append((num_layer, model_weight[k].data.float()))
@@ -114,9 +114,7 @@ def draw_fp8_scale_fig(model_path, save_path):
             fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
             draw_sub_lines(weight_dict, ax1, g_opname[0])
             draw_sub_lines(weight_dict, ax2, g_opname[1])
-            plt.savefig(
-                os.path.join(save_path, f"./OP_{g_opname}_quant_scale_line.jpg")
-            )
+            plt.savefig(os.path.join(save_path, f"./OP_{g_opname}_quant_scale_line.jpg"))
     else:
         print("dynamic fp8 analyse")
         for opname in list_weight_op:
@@ -146,7 +144,7 @@ def get_weight_dict(model_path):
                 k_spllit = k.split("layers", 1)
                 num_layer = str(int(k_spllit[-1].split(".", 2)[1]))
                 op = k_spllit[-1].split(".", 2)[-1]
-                if num_layer not in weight_dict.keys():
+                if num_layer not in weight_dict:
                     weight_dict[num_layer] = {}
                     weight_dict[num_layer][op] = model_weight[k].data
                 else:
@@ -183,6 +181,4 @@ def draw_bf16_fp8_weight_fig(bf16_path, fp8_path, save_path, layer_index):
         uniform_data = np.array(fp8w)
         draw_hist(uniform_data, ax2, f"FP8_{op_name}")
 
-        plt.savefig(
-            os.path.join(save_path, f"./layer_{layer_index}_op_{op_name}_histogram.jpg")
-        )
+        plt.savefig(os.path.join(save_path, f"./layer_{layer_index}_op_{op_name}_histogram.jpg"))

@@ -52,9 +52,7 @@ class OnlineLLMDatasetBuilder(OnlineDatasetBuilder):
 
         for i in range(len(examples["id"])):
             try:
-                processed_example = self._process_single_conversation(
-                    examples["conversations"][i]
-                )
+                processed_example = self._process_single_conversation(examples["conversations"][i])
 
                 if processed_example is not None:
                     for key, value in processed_example.items():
@@ -69,9 +67,7 @@ class OnlineLLMDatasetBuilder(OnlineDatasetBuilder):
 
         return new_examples
 
-    def _process_single_conversation(
-        self, conversation_data: List[Dict]
-    ) -> Optional[Dict]:
+    def _process_single_conversation(self, conversation_data: List[Dict]) -> Optional[Dict]:
         if not conversation_data or not isinstance(conversation_data, list):
             return None
 
@@ -89,9 +85,7 @@ class OnlineLLMDatasetBuilder(OnlineDatasetBuilder):
             )
 
             # Check if tokenizer supports offset_mapping
-            is_fast_tokenizer = (
-                hasattr(self.tokenizer, "is_fast") and self.tokenizer.is_fast
-            )
+            is_fast_tokenizer = hasattr(self.tokenizer, "is_fast") and self.tokenizer.is_fast
 
             # Tokenize conversation
             if is_fast_tokenizer:
@@ -116,9 +110,7 @@ class OnlineLLMDatasetBuilder(OnlineDatasetBuilder):
                 )
                 input_ids = torch.tensor(encoding.input_ids)
                 # Create loss mask without offsets (alternative implementation needed)
-                loss_mask = self._create_loss_mask_without_offsets(
-                    conversation, input_ids
-                )
+                loss_mask = self._create_loss_mask_without_offsets(conversation, input_ids)
 
             input_ids = torch.tensor(input_ids)
             attention_mask = torch.ones_like(input_ids)

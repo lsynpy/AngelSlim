@@ -31,9 +31,7 @@ def convert_sharegpt_data(row, dataset_column="conversations"):
     role_mapping = {"human": "user", "gpt": "assistant"}
     messages = row[dataset_column]
     for message in messages:
-        converted_messages.append(
-            {"role": role_mapping[message["from"]], "content": message["value"]}
-        )
+        converted_messages.append({"role": role_mapping[message["from"]], "content": message["value"]})
 
     return {"conversations": converted_messages, "id": row["id"]}
 
@@ -43,9 +41,7 @@ def convert_ultrachat_data(row, dataset_column="messages"):
 
     messages = row[dataset_column]
     for message in messages:
-        converted_messages.append(
-            {"role": message["role"], "content": message["content"]}
-        )
+        converted_messages.append({"role": message["role"], "content": message["content"]})
     return {"conversations": converted_messages, "id": row["prompt_id"]}
 
 
@@ -82,9 +78,7 @@ def process_token_dict_to_mappings(
     top_N_frequency_sum = sum(freq for key, freq in top_N)
 
     if total_frequency == 0:
-        print(
-            "Warning: Total token frequency is zero. All tokens will have zero ratio."
-        )
+        print("Warning: Total token frequency is zero. All tokens will have zero ratio.")
         top_N_ratio = 0.0
     else:
         top_N_ratio = top_N_frequency_sum / total_frequency
@@ -148,18 +142,13 @@ def paddingtensor3D_BHW(tensor_list):
 
 
 class DataCollatorWithPadding:
-
     def __call__(self, features: List[Dict[str, Any]]) -> Dict[str, Any]:
         max_length = max(item["input_ids"].shape[1] for item in features)
-        batch_input_ids = torch.cat(
-            [paddingtensor2D(item["input_ids"], max_length) for item in features]
-        )
+        batch_input_ids = torch.cat([paddingtensor2D(item["input_ids"], max_length) for item in features])
         batch_attention_mask = torch.cat(
             [paddingtensor2D(item["attention_mask"], max_length) for item in features]
         )
-        batch_loss_mask = torch.cat(
-            [paddingtensor2D(item["loss_mask"], max_length) for item in features]
-        )
+        batch_loss_mask = torch.cat([paddingtensor2D(item["loss_mask"], max_length) for item in features])
 
         batch = {
             "input_ids": batch_input_ids,
@@ -170,9 +159,7 @@ class DataCollatorWithPadding:
         }
 
         # Check if both hidden_states and target_hiddens exist in all features
-        if all(
-            "hidden_states" in item and "target_hiddens" in item for item in features
-        ):
+        if all("hidden_states" in item and "target_hiddens" in item for item in features):
             batch["hidden_states"] = torch.cat(
                 [paddingtensor(item["hidden_states"], max_length) for item in features]
             )
@@ -183,18 +170,13 @@ class DataCollatorWithPadding:
 
 
 class VLMDataCollatorWithPadding:
-
     def __call__(self, features: List[Dict[str, Any]]) -> Dict[str, Any]:
         max_length = max(item["input_ids"].shape[1] for item in features)
-        batch_input_ids = torch.cat(
-            [paddingtensor2D(item["input_ids"], max_length) for item in features]
-        )
+        batch_input_ids = torch.cat([paddingtensor2D(item["input_ids"], max_length) for item in features])
         batch_attention_mask = torch.cat(
             [paddingtensor2D(item["attention_mask"], max_length) for item in features]
         )
-        batch_loss_mask = torch.cat(
-            [paddingtensor2D(item["loss_mask"], max_length) for item in features]
-        )
+        batch_loss_mask = torch.cat([paddingtensor2D(item["loss_mask"], max_length) for item in features])
 
         batch = {
             "input_ids": batch_input_ids,
@@ -207,26 +189,18 @@ class VLMDataCollatorWithPadding:
         }
 
         if "pixel_values" in features[0]:
-            batch["pixel_values"] = paddingtensor3D_BHW(
-                [item["pixel_values"] for item in features]
-            )
+            batch["pixel_values"] = paddingtensor3D_BHW([item["pixel_values"] for item in features])
         if "video_pixel_values" in features[0]:
             batch["video_pixel_values"] = paddingtensor3D_BHW(
                 [item["video_pixel_values"] for item in features]
             )
         if "image_grid_thw" in features[0]:
-            batch["image_grid_thw"] = paddingtensor3D_BHW(
-                [item["image_grid_thw"] for item in features]
-            )
+            batch["image_grid_thw"] = paddingtensor3D_BHW([item["image_grid_thw"] for item in features])
         if "video_grid_thw" in features[0]:
-            batch["video_grid_thw"] = paddingtensor3D_BHW(
-                [item["video_grid_thw"] for item in features]
-            )
+            batch["video_grid_thw"] = paddingtensor3D_BHW([item["video_grid_thw"] for item in features])
 
         # Check if both hidden_states and target_hiddens exist in all features
-        if all(
-            "hidden_states" in item and "target_hiddens" in item for item in features
-        ):
+        if all("hidden_states" in item and "target_hiddens" in item for item in features):
             batch["hidden_states"] = torch.cat(
                 [paddingtensor(item["hidden_states"], max_length) for item in features]
             )
@@ -236,8 +210,6 @@ class VLMDataCollatorWithPadding:
             batch["inputs_embeds"] = torch.cat(
                 [paddingtensor(item["inputs_embeds"], max_length) for item in features]
             )
-            batch["position_ids"] = paddingtensor3D_CBN(
-                [item["position_ids"] for item in features]
-            )
+            batch["position_ids"] = paddingtensor3D_CBN([item["position_ids"] for item in features])
 
         return batch

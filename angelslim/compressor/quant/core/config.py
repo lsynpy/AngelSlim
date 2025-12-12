@@ -70,14 +70,8 @@ class QuantConfig:
 
         if "fp8" in self.quant_algo:
             is_dynamic = "dynamic" if "dynamic" in self.quant_algo else "static"
-            assert (
-                is_dynamic or act_quant_method is not None
-            ), "[Error] fp8_static need act_quant_method"
-            self.act_observer = (
-                ACT_OBSERVERS_CLASS[act_quant_method]
-                if "static" in is_dynamic
-                else None
-            )
+            assert is_dynamic or act_quant_method is not None, "[Error] fp8_static need act_quant_method"
+            self.act_observer = ACT_OBSERVERS_CLASS[act_quant_method] if "static" in is_dynamic else None
             self.weight_observer = WEIGHT_OBSERVERS_CLASS[weight_quant_method]
             self.kv_cache_observer = None
 
@@ -105,14 +99,8 @@ class QuantConfig:
             self.quant_vit = config.quantization.quant_vit
         elif "int8" in self.quant_algo:
             is_dynamic = "dynamic" if "dynamic" in self.quant_algo else "static"
-            assert (
-                is_dynamic or act_quant_method is not None
-            ), "[Error] int8_static need act_quant_method"
-            self.act_observer = (
-                ACT_OBSERVERS_CLASS[act_quant_method]
-                if "static" in is_dynamic
-                else None
-            )
+            assert is_dynamic or act_quant_method is not None, "[Error] int8_static need act_quant_method"
+            self.act_observer = ACT_OBSERVERS_CLASS[act_quant_method] if "static" in is_dynamic else None
             self.weight_observer = WEIGHT_OBSERVERS_CLASS[weight_quant_method]
             self.kv_cache_observer = None
             self.quant_algo_info = {
@@ -153,12 +141,8 @@ class QuantConfig:
             }
         elif "nvfp4" in self.quant_algo:
             is_dynamic = "dynamic" if "dynamic" in self.quant_algo else "static"
-            assert (
-                is_dynamic or act_quant_method is not None
-            ), "[Error] nvfp4 need act_quant_method"
-            self.act_observer = (
-                AbsmaxPertensorObserver if "static" in is_dynamic else None
-            )
+            assert is_dynamic or act_quant_method is not None, "[Error] nvfp4 need act_quant_method"
+            self.act_observer = AbsmaxPertensorObserver if "static" in is_dynamic else None
             self.weight_observer = AbsmaxPertensorObserver
             self.kv_cache_observer = None
             block_size = (
@@ -192,16 +176,10 @@ class QuantConfig:
         name supports fuzzy search.
         """
         self.custom_observe_layers_names = names
-        self.act_observer = (
-            act_observer if act_observer in ACT_OBSERVERS_CLASS else self.act_observer
-        )
+        self.act_observer = act_observer if act_observer in ACT_OBSERVERS_CLASS else self.act_observer
         self.weight_observer = (
-            weight_observer
-            if weight_observer in WEIGHT_OBSERVERS_CLASS
-            else self.weight_observer
+            weight_observer if weight_observer in WEIGHT_OBSERVERS_CLASS else self.weight_observer
         )
         self.kv_cache_observer = (
-            kv_cache_observer
-            if kv_cache_observer in KVCACHE_OBSERVERS_CLASS
-            else self.kv_cache_observer
+            kv_cache_observer if kv_cache_observer in KVCACHE_OBSERVERS_CLASS else self.kv_cache_observer
         )

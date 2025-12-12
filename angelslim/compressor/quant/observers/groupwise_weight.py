@@ -39,20 +39,14 @@ class AbsMaxGroupWiseWeightObserver(BaseObserver):
         return inputs
 
     def _cal_abs_max(self, inputs):
-        assert (
-            self._group_size == 64 or self._group_size == 128
-        ), "group_size only support 64 or 128"
-        assert (
-            inputs.shape[1] % self._group_size == 0
-        ), "group_size must be a factor of input channels"
+        assert self._group_size == 64 or self._group_size == 128, "group_size only support 64 or 128"
+        assert inputs.shape[1] % self._group_size == 0, "group_size must be a factor of input channels"
         assert len(inputs.shape) == 2, "Currently only support 2D tensor"
         new_inp = inputs
         input_processed = new_inp.view(
             [new_inp.shape[0], new_inp.shape[1] // self._group_size, self._group_size]
         )
-        abs_max_values, _ = input_processed.abs().max(
-            dim=self.quant_axis(), keepdim=True
-        )
+        abs_max_values, _ = input_processed.abs().max(dim=self.quant_axis(), keepdim=True)
         abs_max_values = abs_max_values.squeeze(-1)
         return 0, abs_max_values
 
@@ -69,9 +63,7 @@ class AbsMaxGroupWiseWeightObserver(BaseObserver):
     def scales(self):
         """Return output scales."""
         if self.step == 0:
-            raise ValueError(
-                "AbsMaxGroupWiseWeightObserver scales must calibrate data first!"
-            )
+            raise ValueError("AbsMaxGroupWiseWeightObserver scales must calibrate data first!")
         if self._scale is None:
             self.cal_thresholds()
         if self.dtype:

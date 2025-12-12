@@ -152,9 +152,7 @@ class GPTQModule:
                         weight_zero = zero[idx // group_size]
 
                 maxq = torch.tensor(2**self.quant_bits - 1)
-                q = torch.clamp(
-                    torch.round(w.unsqueeze(1) / weight_scale) + weight_zero, 0, maxq
-                )
+                q = torch.clamp(torch.round(w.unsqueeze(1) / weight_scale) + weight_zero, 0, maxq)
                 q = weight_scale * (q - weight_zero)
                 q = q.flatten()
                 q1[:, i] = q

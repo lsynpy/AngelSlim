@@ -52,7 +52,7 @@ class MultiModalDataset(BaseDataset):
         image_dir = os.path.join(os.path.dirname(data_path), "images")
         line_count = 0
 
-        with open(data_path, "r") as f:
+        with open(data_path) as f:
             for line in f:
                 if num_samples > 0 and line_count >= num_samples:
                     break
@@ -85,9 +85,7 @@ class MultiModalDataset(BaseDataset):
         """Load dataset from Hugging Face format"""
         dataset = load_dataset(dataset, split="test")
         total_samples = (
-            min(num_samples, len(dataset["query"]))
-            if num_samples > 0
-            else len(dataset["query"])
+            min(num_samples, len(dataset["query"])) if num_samples > 0 else len(dataset["query"])
         )
 
         for i in tqdm(range(total_samples), desc="Processing HF Dataset"):
@@ -120,9 +118,7 @@ class MultiModalDataset(BaseDataset):
                 max_length=self.max_length,
             )
         elif self.model_name in ["HunyuanVL"]:
-            text = self.processor.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True
-            )
+            text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
             image_inputs, _ = self._extract_vision_info(messages)
 
             # Process inputs
@@ -135,9 +131,7 @@ class MultiModalDataset(BaseDataset):
                 max_length=self.max_length,
             )
         else:
-            text = self.processor.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True
-            )
+            text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 
             # Extract vision info
             image_inputs, video_inputs = qwen_vl_utils.process_vision_info(messages)
@@ -177,9 +171,7 @@ class MultiModalDataset(BaseDataset):
                             img = Image.open(item["image"])
                             image_paths.append(img)
                         except ValueError as e:
-                            raise ValueError(
-                                f"Could not open image file: {item['image']}, {e}"
-                            )
+                            raise ValueError(f"Could not open image file: {item['image']}, {e}")
                     elif isinstance(item["image"], Image.Image):
                         image_paths.append(item["image"])
                 elif item.get("type") == "video":

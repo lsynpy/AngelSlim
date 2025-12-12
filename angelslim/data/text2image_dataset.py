@@ -43,7 +43,7 @@ class Text2ImageDataset(BaseDataset):
 
     def _load_jsonl_data(self, data_path: str, num_samples: int):
         line_count = 0
-        with open(data_path, "r") as f:
+        with open(data_path) as f:
             for line in f:
                 if num_samples > 0 and line_count >= num_samples:
                     break

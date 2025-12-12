@@ -61,9 +61,9 @@ class INT8:
     def run(self, dataloader):
         if self.low_memory:
             print_info("Use INT8 low memory run")
-            assert (
-                str(next(self.model.model.parameters()).device) == "cpu"
-            ), "[AngelSlim Error] INT8 low memory mode need model in cpu"
+            assert str(next(self.model.model.parameters()).device) == "cpu", (
+                "[AngelSlim Error] INT8 low memory mode need model in cpu"
+            )
             self.low_memory_run(dataloader)
         else:
             print_info("[AngelSlim] Use INT8 fast forward")
@@ -83,9 +83,7 @@ class INT8:
         )
         cache = {"i": 0}
         layers[0] = layers[0].to(dev)
-        self.model.model.model.embed_tokens = self.model.model.model.embed_tokens.to(
-            dev
-        )
+        self.model.model.model.embed_tokens = self.model.model.model.embed_tokens.to(dev)
         layers[0] = Catcher(layers[0], self.inps, cache)
         self.model.model_forward(dataloader)
         layer_kwargs = layers[0].layer_kwargs
@@ -94,12 +92,7 @@ class INT8:
             # position embeddings
             if isinstance(v, tuple):
                 layer_kwargs[k] = tuple(
-                    (
-                        item.to(dev)
-                        if isinstance(item, (torch.Tensor, nn.Module))
-                        else item
-                    )
-                    for item in v
+                    (item.to(dev) if isinstance(item, (torch.Tensor, nn.Module)) else item) for item in v
                 )
 
         print_info("cache['i']:{}".format(cache["i"]))
@@ -116,9 +109,7 @@ class INT8:
         self.inps = self.inps.to("cpu")
         for i in range(len(layers)):
             if torch.cuda.is_available():
-                print_info(
-                    f"GPU Memory: {torch.cuda.memory_allocated() / 1024 ** 2:.2f} MB"
-                )
+                print_info(f"GPU Memory: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
 
             layer = layers[i].to(dev)
             outs = outs.to(dev)
@@ -126,9 +117,9 @@ class INT8:
             # being hook
             for j in range(min(self.inps.shape[0], nsamples)):
                 with torch.no_grad():
-                    outs[j, :, :] = layer(
-                        hidden_states=self.inps[j, :, :].unsqueeze(0), **layer_kwargs
-                    )[0].squeeze(1)
+                    outs[j, :, :] = layer(hidden_states=self.inps[j, :, :].unsqueeze(0), **layer_kwargs)[
+                        0
+                    ].squeeze(1)
 
             print_info("HOOK Step{}".format(j))
 

@@ -208,7 +208,7 @@ pip install angelslim
 Alternatively, you can clone the repository and install from source in editable mode:
 
 ```shell
-cd AngelSlim && python setup.py install
+cd AngelSlim && pip install .
 ```
 
 For more detailed installation instructions, please refer to the [Installation Documentation](https://angelslim.readthedocs.io/zh-cn/latest/getting_started/installation.html).

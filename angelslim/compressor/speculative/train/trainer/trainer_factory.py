@@ -42,9 +42,7 @@ class Eagle3TrainerFactory:
         return decorator
 
     @classmethod
-    def create(
-        cls, training_mode: str = "online", modal_type: str = "LLM", **kwargs: Any
-    ) -> Eagle3Trainer:
+    def create(cls, training_mode: str = "online", modal_type: str = "LLM", **kwargs: Any) -> Eagle3Trainer:
         """Create a dataset builder instance based on modal_type."""
         if (training_mode, modal_type) not in cls._builders:
             available = list(cls._builders.keys())

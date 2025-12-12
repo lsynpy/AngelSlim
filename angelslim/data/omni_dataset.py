@@ -48,7 +48,7 @@ class OmniDataset(BaseDataset):
         data_dir = path_obj.parent
 
         line_count = 0
-        with open(data_path, "r") as f:
+        with open(data_path) as f:
             for line in f:
                 if num_samples > 0 and line_count >= num_samples:
                     break
@@ -58,17 +58,11 @@ class OmniDataset(BaseDataset):
                 image_path = None
 
                 if "video_path" in data:
-                    video_path = os.path.normpath(
-                        os.path.join(data_dir, data["video_path"])
-                    )
+                    video_path = os.path.normpath(os.path.join(data_dir, data["video_path"]))
                 if "audio_path" in data:
-                    audio_path = os.path.normpath(
-                        os.path.join(data_dir, data["audio_path"])
-                    )
+                    audio_path = os.path.normpath(os.path.join(data_dir, data["audio_path"]))
                 if "image_path" in data:
-                    image_path = os.path.normpath(
-                        os.path.join(data_dir, data["image_path"])
-                    )
+                    image_path = os.path.normpath(os.path.join(data_dir, data["image_path"]))
 
                 ms = data.get("messages")
 
@@ -107,9 +101,7 @@ class OmniDataset(BaseDataset):
 
     def _process_and_append(self, messages: List[Dict]):
         """Process messages and append to dataset"""
-        text = self.processor.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
+        text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         audios, images, videos = qwen_omni_utils.process_mm_info(
             messages, use_audio_in_video=self.use_audio_in_video
         )

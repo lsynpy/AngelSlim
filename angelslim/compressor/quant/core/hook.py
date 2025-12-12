@@ -30,17 +30,13 @@ class PTQHook:
 
     def apply_hook(self):
         self.quant_layers_dict = self.quant_model.get_observer_layers()
-        self.kv_names = self.quant_model.get_kvcache_observer_layers_names(
-            self.quant_layers_dict.keys()
-        )
+        self.kv_names = self.quant_model.get_kvcache_observer_layers_names(self.quant_layers_dict.keys())
         act_observer = self.quant_model.quant_algo_dict["act_observer"]
         weight_observer = self.quant_model.quant_algo_dict["weight_observer"]
         kv_cache_observer = self.quant_model.quant_algo_dict["kv_cache_observer"]
 
         quant_parent_dict = self.quant_model.get_parent_dict(self.quant_layers_dict)
-        parent_observers = {
-            v: ParentObserver() for v in set(quant_parent_dict.values())
-        }
+        parent_observers = {v: ParentObserver() for v in set(quant_parent_dict.values())}
 
         # apply observers
         for name, sub_layer in self.quant_layers_dict.items():
@@ -55,7 +51,7 @@ class PTQHook:
                 weight_observer,
                 kv_cache_observer if name in self.kv_names else None,
                 self.quant_model.quant_algo_dict,
-                **extra_kwargs
+                **extra_kwargs,
             )
             forward_hook_handle = sub_layer.register_forward_hook(self._forward_hook)
             self.observer_dict[sub_layer] = observer
@@ -100,18 +96,14 @@ class PTQHook:
                     if name in self.quant_model.act_scales_dict.keys():
                         act_dtype = self.quant_model.act_scales_dict[name].dtype
                         if "Search" in str(self.observer_dict[sub_layer]):
-                            tmp_maxval = get_fp_search_maxval(
-                                self.observer_dict[sub_layer].sampled_input
-                            )
-                            self.quant_model.act_scales_dict[name] = (
-                                self.quant_model.act_scales_dict[name]
-                                / tmp_maxval.type(act_dtype)
-                            )
+                            tmp_maxval = get_fp_search_maxval(self.observer_dict[sub_layer].sampled_input)
+                            self.quant_model.act_scales_dict[name] = self.quant_model.act_scales_dict[
+                                name
+                            ] / tmp_maxval.type(act_dtype)
                         else:
-                            self.quant_model.act_scales_dict[name] = (
-                                self.quant_model.act_scales_dict[name]
-                                / maxval.type(act_dtype)
-                            )
+                            self.quant_model.act_scales_dict[name] = self.quant_model.act_scales_dict[
+                                name
+                            ] / maxval.type(act_dtype)
         if self.quant_model.quant_algo_dict["c_quant_algo"] == "fp8":
             for k, v in self.quant_model.kv_cache_scales_dict.items():
                 self.quant_model.kv_cache_scales_dict[k] = v / maxval.type(v.dtype)

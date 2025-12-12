@@ -82,9 +82,7 @@ class LeptoFP8:
         )
         cache = {"i": 0}
         layers[0] = layers[0].to(dev)
-        self.quant_model.model.model.embed_tokens = (
-            self.quant_model.model.model.embed_tokens.to(dev)
-        )
+        self.quant_model.model.model.embed_tokens = self.quant_model.model.model.embed_tokens.to(dev)
         layers[0] = Catcher(layers[0], self.inps, cache)
         self.quant_model.model_forward(dataloader)
         layer_kwargs = layers[0].layer_kwargs
@@ -92,12 +90,7 @@ class LeptoFP8:
             # position embeddings
             if isinstance(v, tuple):
                 layer_kwargs[k] = tuple(
-                    (
-                        item.to(dev)
-                        if isinstance(item, (torch.Tensor, nn.Module))
-                        else item
-                    )
-                    for item in v
+                    (item.to(dev) if isinstance(item, (torch.Tensor, nn.Module)) else item) for item in v
                 )
 
         print_info("cache['i']:{}".format(cache["i"]))
@@ -116,9 +109,7 @@ class LeptoFP8:
 
         for i in range(len(layers)):
             if torch.cuda.is_available():
-                print_info(
-                    f"GPU Memory: {torch.cuda.memory_allocated() / 1024 ** 2:.2f} MB"
-                )
+                print_info(f"GPU Memory: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
 
             layer = layers[i].to(dev)
             outs = outs.to(dev)
@@ -153,9 +144,9 @@ class LeptoFP8:
             # being hook
             for j in range(min(self.inps.shape[0], nsamples)):
                 with torch.no_grad():
-                    outs[j, :, :] = layer(
-                        hidden_states=self.inps[j, :, :].unsqueeze(0), **layer_kwargs
-                    )[0].squeeze(1)
+                    outs[j, :, :] = layer(hidden_states=self.inps[j, :, :].unsqueeze(0), **layer_kwargs)[
+                        0
+                    ].squeeze(1)
 
             # remove duplicate
             def deduplicate_tensors(tensor_list):
@@ -186,9 +177,7 @@ class LeptoFP8:
             # Clear GPU memory
             torch.cuda.empty_cache()
 
-            scales_list = self.scale_function.auto_scale(
-                self.ptq_hook, layer, input_feat, layer_kwargs
-            )
+            scales_list = self.scale_function.auto_scale(self.ptq_hook, layer, input_feat, layer_kwargs)
 
             for scales in scales_list:
                 for kn in scales[0]:
@@ -228,9 +217,9 @@ class LeptoFP8:
                 sub_layer, self.ptq_hook.observer_dict[sub_layer].weight_observer
             )
 
-            self.quant_model.weight_scales_dict[name] = weight_scales / get_fp_maxval(
-                bits=8
-            ).type(weight_scales.dtype)
+            self.quant_model.weight_scales_dict[name] = weight_scales / get_fp_maxval(bits=8).type(
+                weight_scales.dtype
+            )
             old_scale = self.ptq_hook.observer_dict[sub_layer].act_observer.scales()
             lepto_scale = torch.clamp(
                 self.scales_dict.pop(name).squeeze().detach().to(old_scale.device),
@@ -254,9 +243,7 @@ class LeptoFP8:
         # 2. insert qdq module
         quant_convert_module = self.quant_model.get_quant_convert_module()
         for name, sub_layer in self.ptq_hook.quant_layers_dict.items():
-            parent_layer, sub_name = find_parent_layer_and_sub_name(
-                quant_convert_module, name
-            )
+            parent_layer, sub_name = find_parent_layer_and_sub_name(quant_convert_module, name)
 
             qdq_module = self.quant_model.get_qdq_module(sub_layer, name)
             setattr(parent_layer, sub_name, qdq_module)

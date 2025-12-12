@@ -35,9 +35,7 @@ class OfflineVLMEagle3Dataset(Dataset):
     hidden_states, and loss_mask.
     """
 
-    def __init__(
-        self, data_dir: str, file_pattern: str = "*.ckpt", cache_in_memory: bool = False
-    ):
+    def __init__(self, data_dir: str, file_pattern: str = "*.ckpt", cache_in_memory: bool = False):
         """
         Initialize the OfflineVLMEagle3Dataset.
 
@@ -63,8 +61,7 @@ class OfflineVLMEagle3Dataset(Dataset):
             )
 
         rank0_print(
-            f"Found {len(self.ckpt_files)} checkpoint files "
-            f"in {data_dir} (including subdirectories)"
+            f"Found {len(self.ckpt_files)} checkpoint files in {data_dir} (including subdirectories)"
         )
 
         # Track valid indices (files that can be loaded successfully)
@@ -131,8 +128,7 @@ class OfflineVLMEagle3Dataset(Dataset):
 
         if missing_keys:
             warnings.warn(
-                f"Checkpoint {ckpt_path} is missing required keys: {missing_keys}. "
-                f"Skipping this file.",
+                f"Checkpoint {ckpt_path} is missing required keys: {missing_keys}. Skipping this file.",
                 RuntimeWarning,
                 stacklevel=2,
             )
@@ -142,8 +138,7 @@ class OfflineVLMEagle3Dataset(Dataset):
         for key in required_keys:
             if not isinstance(data[key], torch.Tensor):
                 warnings.warn(
-                    f"Value for key '{key}' in {ckpt_path} is not a torch.Tensor. "
-                    f"Skipping this file.",
+                    f"Value for key '{key}' in {ckpt_path} is not a torch.Tensor. Skipping this file.",
                     RuntimeWarning,
                     stacklevel=2,
                 )
@@ -189,21 +184,15 @@ class OfflineVLMEagle3Dataset(Dataset):
             # Remove failed index from valid_indices
             self.valid_indices.remove(actual_idx)
             if len(self.valid_indices) == 0:
-                raise RuntimeError(
-                    "All checkpoint files failed to load. " "Cannot continue training."
-                )
+                raise RuntimeError("All checkpoint files failed to load. Cannot continue training.")
 
             # If all retries failed, raise error
-            raise RuntimeError(
-                f"Failed to load any valid checkpoint after {max_retries} attempts"
-            )
+            raise RuntimeError(f"Failed to load any valid checkpoint after {max_retries} attempts")
 
 
 @DatasetBuilderFactory.register("offline", "VLM")
 class OfflineVLMDatasetBuilder(DatasetBuilder):
-    def __init__(
-        self, file_pattern: str = "*.ckpt", cache_in_memory: bool = False, **kwargs: Any
-    ):
+    def __init__(self, file_pattern: str = "*.ckpt", cache_in_memory: bool = False, **kwargs: Any):
         self.file_pattern = file_pattern
         self.cache_in_memory = cache_in_memory
 

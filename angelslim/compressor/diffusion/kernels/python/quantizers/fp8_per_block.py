@@ -45,9 +45,7 @@ def _fp8_per_block_quant_kernel(x_ptr, y_ptr, s_ptr, M, N, BLOCK_SIZE: tl.conste
 
 # triton implementation
 # for weight quantization on gpu
-def fp8_per_block_quant_triton(
-    x: torch.Tensor, block_size: int = 128
-) -> Tuple[torch.Tensor, torch.Tensor]:
+def fp8_per_block_quant_triton(x: torch.Tensor, block_size: int = 128) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Quantizes a FP32 2D tensor to FP8 (E4M3FN) using block-wise quantization.
     For each (block_size x block_size) block:

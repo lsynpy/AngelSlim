@@ -197,8 +197,7 @@ def string_to_chat_template_type(template_type_str: str) -> ChatTemplateType:
     if template_type_str not in CHAT_TEMPLATE_TYPE_MAPPING:
         supported_types = list(CHAT_TEMPLATE_TYPE_MAPPING.keys())
         raise ValueError(
-            f"Unsupported chat template type: {template_type_str}. "
-            f"Supported types: {supported_types}"
+            f"Unsupported chat template type: {template_type_str}. Supported types: {supported_types}"
         )
 
     return CHAT_TEMPLATE_TYPE_MAPPING[template_type_str]

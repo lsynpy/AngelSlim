@@ -91,9 +91,7 @@ class TargetHead(nn.Module):
             if hasattr(config, sub_config_name):
                 config = getattr(config, sub_config_name)
             else:
-                raise ValueError(
-                    f"Config {config} has no sub-config named {sub_config_name}"
-                )
+                raise ValueError(f"Config {config} has no sub-config named {sub_config_name}")
 
         # Get model dimensions
         hidden_size = config.hidden_size
@@ -105,9 +103,7 @@ class TargetHead(nn.Module):
         # Load lm_head weights from safetensors
         try:
             # Read safetensors index to locate lm_head weights
-            index_path = os.path.join(
-                model_name_or_path, "model.safetensors.index.json"
-            )
+            index_path = os.path.join(model_name_or_path, "model.safetensors.index.json")
 
             if not os.path.exists(index_path):
                 raise FileNotFoundError(
@@ -117,7 +113,7 @@ class TargetHead(nn.Module):
                 )
 
             # Model is sharded, use index to find lm_head
-            with open(index_path, "r") as f:
+            with open(index_path) as f:
                 index_json = json.loads(f.read())
                 head_path = index_json["weight_map"][lm_head_key]
 
@@ -130,10 +126,7 @@ class TargetHead(nn.Module):
             lm_head.weight.data = tensor
 
         except Exception as e:
-            raise RuntimeError(
-                f"Failed to load lm_head weights from {model_name_or_path}. "
-                f"Error: {str(e)}"
-            )
+            raise RuntimeError(f"Failed to load lm_head weights from {model_name_or_path}. Error: {str(e)}")
 
         # Create TargetHead instance
         target_head = cls(lm_head)

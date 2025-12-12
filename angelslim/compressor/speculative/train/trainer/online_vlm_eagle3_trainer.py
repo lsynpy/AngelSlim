@@ -49,13 +49,9 @@ class OnlineVLMEagle3Trainer(Eagle3Trainer):
         """
         super().__init__(draft_model=draft_model, length=length, **kwargs)
         self.target_model = target_model
-        self._aux_hidden_states_layer_ids = getattr(
-            draft_model_config, "aux_hidden_states_layer_ids", None
-        )
+        self._aux_hidden_states_layer_ids = getattr(draft_model_config, "aux_hidden_states_layer_ids", None)
 
-    def prepare_data_for_draft_model(
-        self, input_ids, attention_mask, loss_mask, **kwargs
-    ):
+    def prepare_data_for_draft_model(self, input_ids, attention_mask, loss_mask, **kwargs):
         # Get hidden states and logits from target model
         hidden_states, target_logits, inputs_embeds, position_ids = (
             self.target_model.get_hidden_states_and_logits(
@@ -183,9 +179,7 @@ class OnlineVLMEagle3Trainer(Eagle3Trainer):
 
             # Compute accuracy
             with torch.no_grad():
-                correct = (
-                    logits.argmax(-1) == target_p.argmax(-1)
-                ) * position_mask.squeeze(-1)
+                correct = (logits.argmax(-1) == target_p.argmax(-1)) * position_mask.squeeze(-1)
                 accuracy = correct.sum().item() / (loss_mask.sum().item() + 1e-6)
 
             # Store loss and accuracy
@@ -201,23 +195,18 @@ class OnlineVLMEagle3Trainer(Eagle3Trainer):
                 # Update attention mask to prevent attending to future positions
                 ind = torch.arange(seq_length, device=attention_mask.device)
                 new_attention_mask = attention_mask.clone()
-                new_attention_mask[:, :, ind[idx:], ind[: seq_length - idx]] = (
-                    torch.finfo(attention_mask.dtype).min
-                )
+                new_attention_mask[:, :, ind[idx:], ind[: seq_length - idx]] = torch.finfo(
+                    attention_mask.dtype
+                ).min
                 attention_mask = new_attention_mask
 
         # Compute weighted loss
         ploss_weight = [0.8**i for i in range(len(plosses))]
         ploss = sum([ploss_weight[i] * plosses[i] for i in range(len(plosses))])
 
-        log = {
-            f"{log_prefix}acc_{i}": round(float(acces[i]), 3) for i in range(len(acces))
-        }
+        log = {f"{log_prefix}acc_{i}": round(float(acces[i]), 3) for i in range(len(acces))}
         log.update(
-            {
-                f"{log_prefix}ploss_{i}": round(float(plosses[i].item()), 3)
-                for i in range(len(plosses))
-            }
+            {f"{log_prefix}ploss_{i}": round(float(plosses[i].item()), 3) for i in range(len(plosses))}
         )
         self.log(log)
 

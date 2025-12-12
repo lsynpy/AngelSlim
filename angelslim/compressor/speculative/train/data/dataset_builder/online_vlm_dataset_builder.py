@@ -127,12 +127,10 @@ class OnlineVLMDatasetBuilder(OnlineDatasetBuilder):
 
         for i in range(len(examples["id"])):
             try:
-                processed_example = self._process_single_conversation(
-                    examples["conversations"][i]
-                )
+                processed_example = self._process_single_conversation(examples["conversations"][i])
 
                 if processed_example is not None:
-                    for key in new_examples.keys():
+                    for key in new_examples:
                         if key not in processed_example:
                             new_examples[key].append(None)
                         else:
@@ -165,16 +163,12 @@ class OnlineVLMDatasetBuilder(OnlineDatasetBuilder):
         input_ids = input_ids.view(-1)
         return super()._visualize_loss_mask(input_ids, loss_mask, conversation)
 
-    def _create_loss_mask_from_offsets(
-        self, conversation: str, offsets: torch.Tensor
-    ) -> torch.Tensor:
+    def _create_loss_mask_from_offsets(self, conversation: str, offsets: torch.Tensor) -> torch.Tensor:
         if offsets.ndim == 3:
             offsets = offsets[0]
         return super()._create_loss_mask_from_offsets(conversation, offsets)
 
-    def _process_single_conversation(
-        self, conversation_data: List[Dict]
-    ) -> Optional[Dict]:
+    def _process_single_conversation(self, conversation_data: List[Dict]) -> Optional[Dict]:
         if not conversation_data or not isinstance(conversation_data, list):
             return None
 
@@ -185,15 +179,13 @@ class OnlineVLMDatasetBuilder(OnlineDatasetBuilder):
                 return None
 
             # Apply chat template
-            assert isinstance(
-                messages, list
-            ), f"type(messages)={type(messages)} is not list"
+            assert isinstance(messages, list), f"type(messages)={type(messages)} is not list"
             for message in messages:
                 if isinstance(message["content"], str):
                     continue
-                assert isinstance(
-                    message["content"], list
-                ), f"content={type(message['content'])} is not str or list"
+                assert isinstance(message["content"], list), (
+                    f"content={type(message['content'])} is not str or list"
+                )
                 new_content = []
                 for item in message["content"]:
                     new_item = {"type": item["type"], item["type"]: item[item["type"]]}
@@ -216,9 +208,7 @@ class OnlineVLMDatasetBuilder(OnlineDatasetBuilder):
             input_ids = encoding["input_ids"]
             offsets = encoding["offset_mapping"]
 
-            conversation = self.tokenizer.decode(
-                input_ids[0], skip_special_tokens=False
-            )
+            conversation = self.tokenizer.decode(input_ids[0], skip_special_tokens=False)
 
             # Create loss mask for assistant responses
             try:
@@ -248,9 +238,7 @@ class OnlineVLMDatasetBuilder(OnlineDatasetBuilder):
             if "pixel_values" in encoding:
                 result_dict["pixel_values"] = encoding["pixel_values"].unsqueeze(0)
             if "video_pixel_values" in encoding:
-                result_dict["video_pixel_values"] = encoding[
-                    "video_pixel_values"
-                ].unsqueeze(0)
+                result_dict["video_pixel_values"] = encoding["video_pixel_values"].unsqueeze(0)
             if "image_grid_thw" in encoding:
                 result_dict["image_grid_thw"] = encoding["image_grid_thw"].unsqueeze(0)
             if "video_grid_thw" in encoding:

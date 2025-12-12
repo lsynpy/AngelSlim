@@ -34,11 +34,7 @@ class AbsmaxPertensorObserver(BaseObserver):
         self._max = torch.tensor(1e-7, dtype=torch.float32)
         self.step = 0
         self.dtype = None
-        self.parent_observer = (
-            kwargs["parent_observer"]
-            if kwargs and "parent_observer" in kwargs
-            else None
-        )
+        self.parent_observer = kwargs["parent_observer"] if kwargs and "parent_observer" in kwargs else None
 
     def forward(self, inputs):
         """Calculate forward pass."""
@@ -86,9 +82,7 @@ class AbsmaxPertensorObserver(BaseObserver):
             self._update_min_max(self.parent_observer.min, self.parent_observer.max)
             self.step = self.parent_observer.step
         if self.step == 0:
-            raise ValueError(
-                "AbsmaxPertensorObserver scales must calibrate data first!"
-            )
+            raise ValueError("AbsmaxPertensorObserver scales must calibrate data first!")
         if self._scale is None:
             self.cal_thresholds()
         if self.dtype:
@@ -168,9 +162,7 @@ class AbsmaxPerchannelObserver(BaseObserver):
         self._scale = None
         self._zero_point = None
         self._min = None
-        self._max = (
-            torch.zeros((self._layer.weight.shape[0])) - torch.inf
-        )  # per-outchannel
+        self._max = torch.zeros(self._layer.weight.shape[0]) - torch.inf  # per-outchannel
         self.step = 0
         self.dtype = None
 
@@ -203,9 +195,7 @@ class AbsmaxPerchannelObserver(BaseObserver):
     def scales(self):
         """Return output scales."""
         if self.step == 0:
-            raise ValueError(
-                "AbsmaxPerchannelObserver scales must calibrate data first!"
-            )
+            raise ValueError("AbsmaxPerchannelObserver scales must calibrate data first!")
         if self._scale is None:
             self.cal_thresholds()
         if self.dtype:

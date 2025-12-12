@@ -72,18 +72,16 @@ class DynamicDiTQuantizer:
         self.layer_filter = (
             layer_filter
             if layer_filter is not None
-            else lambda name: should_quantize_layer(
-                name, self.include_patterns, self.exclude_patterns
-            )
+            else lambda name: should_quantize_layer(name, self.include_patterns, self.exclude_patterns)
         )
 
         # Auto-detect FP8 native support, fallback to False if not present
         if native_fp8_support is not None:
             self.native_fp8_support = native_fp8_support
         else:
-            self.native_fp8_support = (
-                torch.cuda.is_available()
-                and torch.cuda.get_device_capability() >= (8, 9)
+            self.native_fp8_support = torch.cuda.is_available() and torch.cuda.get_device_capability() >= (
+                8,
+                9,
             )
 
         self.quantize_linear_module = self._set_quantize_linear_module()
@@ -96,15 +94,11 @@ class DynamicDiTQuantizer:
                 return FP8DynamicLinear
         raise ValueError(f"Invalid quant_type: {self.quant_type}")
 
-    def _quantize_linear_weight(
-        self, linear: torch.nn.Linear
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def _quantize_linear_weight(self, linear: torch.nn.Linear) -> Tuple[torch.Tensor, torch.Tensor]:
         if self.quant_type == QuantType.FP8_PER_TENSOR:
             quant_weight, weight_scale = fp8_per_tensor_quant(linear.weight)
         elif self.quant_type == QuantType.FP8_PER_TOKEN:
-            quant_weight, weight_scale = fp8_per_token_group_quant(
-                linear.weight, linear.weight.shape[-1]
-            )
+            quant_weight, weight_scale = fp8_per_token_group_quant(linear.weight, linear.weight.shape[-1])
             weight_scale = weight_scale.t()
         elif self.quant_type == QuantType.FP8_PER_BLOCK:
             if self.native_fp8_support:
@@ -116,20 +110,14 @@ class DynamicDiTQuantizer:
             raise ValueError(f"Invalid quant_type: {self.quant_type}")
         return quant_weight, weight_scale
 
-    def _convert_linear_with_scale(
-        self, model: torch.nn.Module, scale: Union[torch.Tensor, float]
-    ):
+    def _convert_linear_with_scale(self, model: torch.nn.Module, scale: Union[torch.Tensor, float]):
         model.to(torch.bfloat16)
         assert scale is not None, "scale is required"
         self.fp8_scales_map = load_fp8_scales(scale)
-        for name, module in tqdm.tqdm(
-            list(model.named_modules()), desc="converting linear"
-        ):
+        for name, module in tqdm.tqdm(list(model.named_modules()), desc="converting linear"):
             if isinstance(module, torch.nn.Linear) and self.layer_filter(name):
                 # Prefer $name.weight_scale, fallback to "$name" key if needed
-                s = self.fp8_scales_map.get(
-                    f"{name}.weight_scale"
-                ) or self.fp8_scales_map.get(name)
+                s = self.fp8_scales_map.get(f"{name}.weight_scale") or self.fp8_scales_map.get(name)
                 if s is None:
                     continue
                 # import pdb; pdb.set_trace()
@@ -165,18 +153,16 @@ class DynamicDiTQuantizer:
                 del module.weight, module.bias, module
         cleanup_memory()
 
-    def convert_linear(
-        self, model: torch.nn.Module, scale: Optional[Union[torch.Tensor, float]] = None
-    ):
+    def convert_linear(self, model: torch.nn.Module, scale: Optional[Union[torch.Tensor, float]] = None):
         if scale is not None:
             self._convert_linear_with_scale(model, scale)
         else:
             self._convert_linear(model)
 
     def export_quantized_weight(self, model: torch.nn.Module, save_path: str):
-        assert (
-            self.quant_type == QuantType.FP8_PER_TENSOR
-        ), "Currently only FP8_PER_TENSOR is supported for export"
+        assert self.quant_type == QuantType.FP8_PER_TENSOR, (
+            "Currently only FP8_PER_TENSOR is supported for export"
+        )
         self.convert_linear(model)
         save_quantized_model(model, save_path, self.fp8_scales_map)
         logger.info(f"Quantized model saved to {save_path}")

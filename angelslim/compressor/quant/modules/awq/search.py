@@ -53,9 +53,7 @@ class AWQSearch:
 
     # search by block
     @torch.no_grad()
-    def search_by_block(
-        self, layer_name, act_input, act_abs_max, layers, block, cache, layer_count
-    ):
+    def search_by_block(self, layer_name, act_input, act_abs_max, layers, block, cache, layer_count):
         act = act_input
         print_func("[awq search] act device: %s" % act.device)
         print_func("[awq search] search input of %s" % layer_name)
@@ -108,9 +106,7 @@ class AWQSearch:
 
                 for j in range(act.shape[0]):
                     new_act = act[j, :, :].unsqueeze(0).to(dev) / scales
-                    new_out[j, :, :] = self._get_out(
-                        layer_name, new_act, block, cache
-                    ).to(act.device)
+                    new_out[j, :, :] = self._get_out(layer_name, new_act, block, cache).to(act.device)
 
                 try:
                     loss = self.loss_function(origin_out, new_out).to(torch.float32)
@@ -144,7 +140,5 @@ class AWQSearch:
             best_scales = torch.ones(scales.shape, dtype=act.dtype)
             print_func("Cannot find better ratio.")
         else:
-            print_func(
-                "Best ratio :{}, minimal loss : {}.".format(best_ratio, best_error)
-            )
+            print_func("Best ratio :{}, minimal loss : {}.".format(best_ratio, best_error))
         return best_scales.detach().cpu()

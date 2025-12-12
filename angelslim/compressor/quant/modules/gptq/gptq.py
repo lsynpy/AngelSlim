@@ -30,9 +30,7 @@ __all__ = ["GPTQ"]
 
 
 class GPTQ:
-    def __init__(
-        self, model, seq_length=2048, hidden_size=2560, sym=True, actorder=True
-    ):
+    def __init__(self, model, seq_length=2048, hidden_size=2560, sym=True, actorder=True):
         super(GPTQ, self).__init__()
         self.model = model
         self.modal_type = self.model.modal_type
@@ -63,9 +61,7 @@ class GPTQ:
         print_info("dev = :{}".format(dev))
 
         nsamples = len(dataloader)
-        inps = torch.zeros(
-            (nsamples, self.seq_length, self.hidden_size), device=dev, dtype=self.dtype
-        )
+        inps = torch.zeros((nsamples, self.seq_length, self.hidden_size), device=dev, dtype=self.dtype)
         cache = {"i": 0}
 
         pre_transformer_modules_dict = self.model.get_pre_transformer_modules()
@@ -106,13 +102,9 @@ class GPTQ:
                     continue
                 if "gptaq" in self.quant_algo:
                     self.native_inp_caches[name] = []
-                    self.gptq[name] = GPTAQModule(
-                        subset[name], quant_bits=self.quant_bits
-                    )
+                    self.gptq[name] = GPTAQModule(subset[name], quant_bits=self.quant_bits)
                 else:
-                    self.gptq[name] = GPTQModule(
-                        subset[name], quant_bits=self.quant_bits
-                    )
+                    self.gptq[name] = GPTQModule(subset[name], quant_bits=self.quant_bits)
 
             def pre_process_fwd_hook(layer_name):
                 def tmp(_, inp, out):
@@ -125,9 +117,7 @@ class GPTQ:
                 def tmp(_, inp, out):
                     if "gptaq" in self.quant_algo:
                         native_inp = self.native_inp_caches[layer_name].pop(0)
-                        self.gptq[layer_name].add_batch(
-                            inp[0].data, out.data, native_inp
-                        )
+                        self.gptq[layer_name].add_batch(inp[0].data, out.data, native_inp)
                     else:
                         self.gptq[layer_name].add_batch(inp[0].data, out.data)
 
@@ -136,9 +126,7 @@ class GPTQ:
             if "gptaq" in self.quant_algo:
                 native_handles = []
                 for name in self.native_inp_caches:
-                    native_handles.append(
-                        subset[name].register_forward_hook(pre_process_fwd_hook(name))
-                    )
+                    native_handles.append(subset[name].register_forward_hook(pre_process_fwd_hook(name)))
 
                 # being native hook
                 for j in range(nsamples):
@@ -160,9 +148,9 @@ class GPTQ:
             # being hook
             for j in range(nsamples):
                 with torch.no_grad():
-                    outs[j, :, :] = layer(
-                        hidden_states=inps[j, :, :].unsqueeze(0), **layer_kwargs
-                    )[0].squeeze(1)
+                    outs[j, :, :] = layer(hidden_states=inps[j, :, :].unsqueeze(0), **layer_kwargs)[
+                        0
+                    ].squeeze(1)
 
             print_info("HOOK Step{}".format(j))
             for h in handles:
@@ -187,9 +175,9 @@ class GPTQ:
 
             for j in range(nsamples):
                 with torch.no_grad():
-                    outs[j, :, :] = layer(
-                        hidden_states=inps[j, :, :].unsqueeze(0), **layer_kwargs
-                    )[0].squeeze(1)
+                    outs[j, :, :] = layer(hidden_states=inps[j, :, :].unsqueeze(0), **layer_kwargs)[
+                        0
+                    ].squeeze(1)
 
             for name in self.gptq:
                 del self.gptq[name].layer
@@ -236,9 +224,7 @@ class GPTQ:
                 new_layer.device = ori_layer_device
                 self._recurse_setattr(module, name, new_layer.to(ori_layer_device))
 
-    def _pack_model(
-        self, model, quantizers, bits, group_size, force_layer_back_to_cpu: bool = False
-    ):
+    def _pack_model(self, model, quantizers, bits, group_size, force_layer_back_to_cpu: bool = False):
         if force_layer_back_to_cpu:
             model.cpu()
 
@@ -311,9 +297,7 @@ class GPTQ:
             "sym": True,
             "true_sequential": True,
         }
-        self.model.model.config.save_pretrained(
-            save_dir, state_dict=EmptyModule().state_dict()
-        )
+        self.model.model.config.save_pretrained(save_dir, state_dict=EmptyModule().state_dict())
         self.model.model.generation_config.save_pretrained(save_dir)
 
         # Remove empty state dict

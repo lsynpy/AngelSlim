@@ -65,9 +65,7 @@ class AutoClip:
         self._forward_hook_list = []
         for name, sub_layer in self.model.named_modules():
             if isinstance(sub_layer, (nn.Linear)):
-                forward_pre_hook_handle = sub_layer.register_forward_pre_hook(
-                    self._forward_pre_hook
-                )
+                forward_pre_hook_handle = sub_layer.register_forward_pre_hook(self._forward_pre_hook)
                 self._forward_hook_list.append(forward_pre_hook_handle)
                 self.linear_name_dict[sub_layer] = name
 
@@ -98,18 +96,12 @@ class AutoClip:
             sub_layer.weight.all_gather()
             w = sub_layer.weight
             x = self.sampled_inputs[name]
-            print_info(
-                "AutoClipping {}, x shape: {}, weight shape: {}".format(
-                    name, x.shape, w.shape
-                )
-            )
+            print_info("AutoClipping {}, x shape: {}, weight shape: {}".format(name, x.shape, w.shape))
             x = x.view(-1, x.shape[-1])
             x = x.reshape(1, x.shape[0], -1, group_size)
             x = x[:, 0 :: x.shape[1] // self.n_sample_token]
             w = w.reshape([w.shape[0], 1, -1, group_size])
-            oc_batch_size = (
-                oc_batch_size if w.shape[0] % oc_batch_size == 0 else 128
-            )  # prevent OOM
+            oc_batch_size = oc_batch_size if w.shape[0] % oc_batch_size == 0 else 128  # prevent OOM
             assert w.shape[0] % oc_batch_size == 0
 
             w_all = w
@@ -136,11 +128,7 @@ class AutoClip:
                     cur_out = (x * quant_dequant_weight).sum(dim=-1)
                     # co, 1, n_group, 1
                     err = (cur_out - org_out).pow(2).mean(dim=1).view(min_errs.shape)
-                    print_info(
-                        "block {} search s {} err {}".format(
-                            i_b, i_s, err.mean().item()
-                        )
-                    )
+                    print_info("block {} search s {} err {}".format(i_b, i_s, err.mean().item()))
                     del cur_w, cur_out, quant_dequant_weight
                     cur_best_idx = err < min_errs
                     min_errs[cur_best_idx] = err[cur_best_idx]
@@ -204,9 +192,7 @@ class AutoLayerClip:
 
     def auto_clip(self, module, input_feat):
         print_info("[auto clip] start")
-        named_linears = {
-            name: m for name, m in module.named_modules() if isinstance(m, (nn.Linear))
-        }
+        named_linears = {name: m for name, m in module.named_modules() if isinstance(m, (nn.Linear))}
 
         clip_list = []
         for name in named_linears:
@@ -214,9 +200,7 @@ class AutoLayerClip:
             # if 'attention.query_key_value' in name:
             #     continue
             print_info(f"[auto clip] {name}")
-            max_val = self._auto_clip_layer(
-                named_linears[name].weight, input_feat[name]
-            )
+            max_val = self._auto_clip_layer(named_linears[name].weight, input_feat[name])
             clip_list.append((name, max_val))
 
         print_info("[auto clip] end")
@@ -238,15 +222,11 @@ class AutoLayerClip:
             inp = inp.to(w.device)
             inp = inp.view(-1, inp.shape[-1])
             inp = inp.reshape(1, inp.shape[0], -1, self.group_size)
-            input_feat = inp[
-                :, 0 :: inp.shape[1] // int(self.n_sample_token)
-            ].contiguous()
+            input_feat = inp[:, 0 :: inp.shape[1] // int(self.n_sample_token)].contiguous()
             torch.cuda.empty_cache()
 
         w = w.reshape([w.shape[0], 1, -1, self.group_size])
-        oc_batch_size = (
-            oc_batch_size if w.shape[0] % oc_batch_size == 0 else 128
-        )  # prevent OOM
+        oc_batch_size = oc_batch_size if w.shape[0] % oc_batch_size == 0 else 128  # prevent OOM
         assert w.shape[0] % oc_batch_size == 0
 
         w_all = w

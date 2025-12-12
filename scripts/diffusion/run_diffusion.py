@@ -7,9 +7,7 @@ from angelslim.compressor.diffusion import DynamicDiTQuantizer
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Diffusion Model FP8 inference & quantization harness"
-    )
+    parser = argparse.ArgumentParser(description="Diffusion Model FP8 inference & quantization harness")
     parser.add_argument(
         "--model-name-or-path",
         type=str,
@@ -45,20 +43,14 @@ def parse_args() -> argparse.Namespace:
         type=str,
         nargs="*",
         default=None,
-        help=(
-            "Quantize only layers whose names match these patterns "
-            "(supports substring or regex)"
-        ),
+        help=("Quantize only layers whose names match these patterns (supports substring or regex)"),
     )
     parser.add_argument(
         "--exclude-patterns",
         type=str,
         nargs="*",
         default=None,
-        help=(
-            "Exclude layers whose names match these patterns "
-            "(supports substring or regex)"
-        ),
+        help=("Exclude layers whose names match these patterns (supports substring or regex)"),
     )
     parser.add_argument(
         "--fp8-model-save-path",
@@ -66,9 +58,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="If set, exports the quantized model and fp8_scales.safetensors",
     )
-    parser.add_argument(
-        "--prompt", type=str, default="A cat holding a sign that says hello world"
-    )
+    parser.add_argument("--prompt", type=str, default="A cat holding a sign that says hello world")
     parser.add_argument("--height", type=int, default=1024)
     parser.add_argument("--width", type=int, default=1024)
     parser.add_argument("--steps", type=int, default=4)
@@ -94,9 +84,7 @@ def build_pipeline(args: argparse.Namespace) -> DiffusionPipeline:
     # Load pipeline with quantized transformer if provided
     if transformer_path is not None:
         dit = DynamicDiTQuantizer.load_quantized_model(AutoModel, transformer_path)
-        pipe = DiffusionPipeline.from_pretrained(
-            model_name, transformer=dit, torch_dtype=torch.bfloat16
-        )
+        pipe = DiffusionPipeline.from_pretrained(model_name, transformer=dit, torch_dtype=torch.bfloat16)
     else:
         # Load pipeline from scratch
         pipe = DiffusionPipeline.from_pretrained(
@@ -123,9 +111,7 @@ def main():
 
     # Export quantized model if save path is specified
     if args.fp8_model_save_path is not None:
-        quantizer.export_quantized_weight(
-            pipe.transformer, save_path=args.fp8_model_save_path
-        )
+        quantizer.export_quantized_weight(pipe.transformer, save_path=args.fp8_model_save_path)
         return
 
     # Run inference
@@ -147,15 +133,9 @@ def main():
     ).images[0]
 
     # Generate output filename based on model name and parameters
-    model_name_clean = (
-        args.model_name_or_path.replace("/", "-")
-        if args.model_name_or_path
-        else "diffusion"
-    )
+    model_name_clean = args.model_name_or_path.replace("/", "-") if args.model_name_or_path else "diffusion"
     quant_type_clean = args.quant_type.replace("/", "-")
-    out_name = (
-        f"{model_name_clean}_{quant_type_clean}_" f"{args.height}x{args.width}.png"
-    )
+    out_name = f"{model_name_clean}_{quant_type_clean}_{args.height}x{args.width}.png"
     image.save(out_name)
 
 

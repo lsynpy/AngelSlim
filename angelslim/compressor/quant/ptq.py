@@ -43,11 +43,7 @@ class PTQ:
         self.absolute_model_path = slim_config["global_config"].absolute_model_path
         self.quant_algo = self.quant_model.quant_config.quant_algo
         self.quant_helpers = self.quant_model.quant_config.quant_helpers
-        if (
-            "fp8" in self.quant_algo
-            or "int8" in self.quant_algo
-            or "nvfp4" in self.quant_algo
-        ):
+        if "fp8" in self.quant_algo or "int8" in self.quant_algo or "nvfp4" in self.quant_algo:
             # Add ptq observer hook
             self.ptq_hook = PTQHook(self.quant_model)
             self.ptq_hook.apply_hook()
@@ -55,9 +51,7 @@ class PTQ:
         if "gptq" in self.quant_algo or "gptaq" in self.quant_algo:
             max_seq_length = self.quant_model.quant_config.max_seq_length
             hidden_size = self.quant_model.quant_config.hidden_size
-            self.gptq = GPTQ(
-                self.quant_model, seq_length=max_seq_length, hidden_size=hidden_size
-            )
+            self.gptq = GPTQ(self.quant_model, seq_length=max_seq_length, hidden_size=hidden_size)
         elif "awq" in self.quant_algo:
             max_seq_length = self.quant_model.quant_config.max_seq_length
             hidden_size = self.quant_model.quant_config.hidden_size
@@ -106,9 +100,7 @@ class PTQ:
         elif "nvfp4" in self.quant_algo:
             self.nvfp4 = NVFP4(self.quant_model)
         else:
-            raise NotImplementedError(
-                f"[AngelSlim Error] algo {self.quant_algo} is not support"
-            )
+            raise NotImplementedError(f"[AngelSlim Error] algo {self.quant_algo} is not support")
 
         if "smooth" in self.quant_helpers:
             self.smooth = SmoothQuant(
@@ -129,9 +121,7 @@ class PTQ:
         elif "nvfp4" in self.quant_algo:
             self.nvfp4.run(dataloader)
         else:
-            raise AssertionError(
-                f"[AngelSlim Error] algo {self.quant_algo} is not support calibrate"
-            )
+            raise AssertionError(f"[AngelSlim Error] algo {self.quant_algo} is not support calibrate")
 
     def convert(self):
         """
@@ -195,9 +185,9 @@ class PTQ:
                 is not None
             ):
                 try:
-                    self.quant_model.act_scales_dict[name] = (
-                        self.ptq_hook.observer_dict[sub_layer].act_observer.scales()
-                    )
+                    self.quant_model.act_scales_dict[name] = self.ptq_hook.observer_dict[
+                        sub_layer
+                    ].act_observer.scales()
                 except ValueError:
                     self.quant_model.act_scales_dict[name] = torch.tensor(
                         1.0, device=torch.cuda.current_device()
@@ -213,9 +203,9 @@ class PTQ:
                 )
                 is not None
             ):
-                self.quant_model.kv_cache_scales_dict[name] = (
-                    self.ptq_hook.observer_dict[sub_layer].kv_cache_observer.scales()
-                )
+                self.quant_model.kv_cache_scales_dict[name] = self.ptq_hook.observer_dict[
+                    sub_layer
+                ].kv_cache_observer.scales()
             if (
                 getattr(  # noqa: B009
                     self.ptq_hook.observer_dict[sub_layer], "weight_observer"
@@ -224,32 +214,27 @@ class PTQ:
             ):
                 if sub_layer.weight.device.type == "meta":
                     with open(
-                        os.path.join(
-                            self.absolute_model_path, "model.safetensors.index.json"
-                        ),
-                        "r",
+                        os.path.join(self.absolute_model_path, "model.safetensors.index.json"),
                     ) as f:
                         model_index = json.load(f)
-                    orign_w_file = os.path.join(
+                    origin_w_file = os.path.join(
                         self.absolute_model_path,
                         model_index["weight_map"][name + ".weight"],
                     )
-                    orign_w = load_file(orign_w_file, device="cpu")
-                    print_info(f"Load meta weight {name} from file {orign_w_file}")
+                    origin_w = load_file(origin_w_file, device="cpu")
+                    print_info(f"Load meta weight {name} from file {origin_w_file}")
                     sub_layer.to_empty(device="cpu")
-                    sub_layer.weight.data = orign_w[name + ".weight"]
+                    sub_layer.weight.data = origin_w[name + ".weight"]
 
                     if hasattr(sub_layer, "bias"):
                         if (name + ".bias") in model_index["weight_map"]:
-                            orign_b_file = os.path.join(
+                            origin_b_file = os.path.join(
                                 self.absolute_model_path,
                                 model_index["weight_map"][name + ".bias"],
                             )
-                            orign_b = load_file(orign_b_file, device="cpu")
-                            print_info(
-                                f"Load meta bias {name} from file {orign_b_file}"
-                            )
-                            sub_layer.bias.data = orign_b[name + ".bias"]
+                            origin_b = load_file(origin_b_file, device="cpu")
+                            print_info(f"Load meta bias {name} from file {origin_b_file}")
+                            sub_layer.bias.data = origin_b[name + ".bias"]
                         else:
                             print_info(f"{name + '.bias'} not found. Set bias to None.")
                             sub_layer.bias = None
@@ -269,9 +254,7 @@ class PTQ:
             self.quant_model.get_observer_values()
         # 2. insert qdq module
         for name, sub_layer in self.ptq_hook.quant_layers_dict.items():
-            parent_layer, sub_name = find_parent_layer_and_sub_name(
-                quant_convert_module, name
-            )
+            parent_layer, sub_name = find_parent_layer_and_sub_name(quant_convert_module, name)
 
             if self.quant_model.quant_config.cpu_convert:
                 sub_layer = sub_layer.to("cpu")
