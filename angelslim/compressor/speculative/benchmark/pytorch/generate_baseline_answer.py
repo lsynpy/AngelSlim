@@ -85,7 +85,7 @@ def initialize_model(config: EvaluationConfig) -> Eagle3Model:
     model = Eagle3Model.from_pretrained(
         base_model_path=config.base_model_path,
         eagle_model_path=config.eagle_model_path,
-        total_token=config.total_token,
+        total_tokens=config.total_token,
         depth=config.depth,
         top_k=config.top_k,
         device_map="auto",
@@ -181,7 +181,9 @@ def generate_answer_for_question(
     return choices
 
 
-def warmup_model(model: Eagle3Model, tokenizer: Any, question: Dict[str, Any], temperature: float) -> None:
+def warmup_model(
+    model: Eagle3Model, tokenizer: Any, question: Dict[str, Any], temperature: float
+) -> None:
     """Warm up the model before actual evaluation"""
     for _ in range(3):
         torch.manual_seed(0)

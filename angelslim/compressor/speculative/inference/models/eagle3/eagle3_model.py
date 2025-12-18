@@ -15,13 +15,14 @@
 import os
 import time
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any
 
 import torch
 import torch.nn as nn
 from huggingface_hub import hf_hub_download
 from safetensors.torch import load_file
 from transformers import AutoConfig, AutoTokenizer
+from transformers.modeling_outputs import BaseModelOutputWithPast
 
 from ......utils.logger import get_logger
 from ....utils import (
@@ -30,16 +31,11 @@ from ....utils import (
     MomentumScorePredictor,
     evaluate_posterior,
     initialize_past_key_values,
-    initialize_tree,
     prepare_logits_processor,
-    reset_tree_mode,
-    tree_decoding,
-    update_inference_inputs,
 )
 from .configuration_eagle3_model import Eagle3Config
 from .draft import Llama3Eagle3Drafter
-from .target import LlamaForCausalLM as KVLlamaForCausalLM
-from .target import Qwen3ForCausalLM as KVQwen3ForCausalLM
+from .target import LlamaForCausalLM, Qwen3ForCausalLM
 
 logger = get_logger(__name__)
 
@@ -59,22 +55,38 @@ class GenerationConfig:
 
 @dataclass
 class GenerationState:
-    """State management for generation process"""
-
-    stop_token_id: Optional[int]
-    logits_processor: Optional[Any]
+    stop_token_id: int | None
+    logits_processor: Any | None
     input_ids: torch.Tensor
     past_key_values: Any
     input_len: int
     new_token: int = 0
+
+    def __repr__(self):
+        processor_name = type(self.logits_processor).__name__ if self.logits_processor else None
+        input_ids_shape = (
+            tuple(self.input_ids.shape)
+            if hasattr(self.input_ids, "shape")
+            else type(self.input_ids).__name__
+        )
+        past_kv_name = type(self.past_key_values).__name__ if self.past_key_values else None
+        return (
+            f"GenerationState("
+            f"stop_token_id={self.stop_token_id}, "
+            f"logits_processor={processor_name}, "
+            f"input_ids_shape={input_ids_shape}, "
+            f"past_key_values={past_kv_name}, "
+            f"input_len={self.input_len}, "
+            f"new_token={self.new_token})"
+        )
 
 
 class ModelLoader:
     """Handles loading of base models and EAGLE components"""
 
     SUPPORTED_ARCHITECTURES = {
-        "LlamaForCausalLM": KVLlamaForCausalLM,
-        "Qwen3ForCausalLM": KVQwen3ForCausalLM,
+        "LlamaForCausalLM": LlamaForCausalLM,
+        "Qwen3ForCausalLM": Qwen3ForCausalLM,
     }
 
     @classmethod
@@ -148,89 +160,13 @@ class PerformanceBenchmark:
         return candidates[times.index(min(times))]
 
 
-class GenerationManager:
-    """Manages the generation process and stopping conditions"""
-
-    def __init__(self, tokenizer: AutoTokenizer):
-        self.tokenizer = tokenizer
-        self._padding_token = None
-
-    def prepare_generation(
-        self, model: "Eagle3Model", input_ids: torch.Tensor, config: GenerationConfig
-    ) -> GenerationState:
-        """Prepare all necessary components for generation"""
-        stop_token_id = None
-        if config.is_llama3:
-            stop_token_id = self.tokenizer.convert_tokens_to_ids("<|eot_id|>")
-
-        logits_processor = (
-            prepare_logits_processor(temperature=config.temperature, top_p=config.top_p, top_k=config.top_k)
-            if config.temperature > 1e-5
-            else None
-        )
-
-        input_ids = input_ids.clone()
-        model.eagle_layer.reset_kv()
-
-        if hasattr(model, "past_key_values"):
-            past_key_values = model.past_key_values
-            model.current_length_data.zero_()
-        else:
-            past_key_values, past_key_values_data, current_length_data = initialize_past_key_values(
-                model.base_model, max_length=config.max_length
-            )
-            model.past_key_values = past_key_values
-            model.past_key_values_data = past_key_values_data
-            model.current_length_data = current_length_data
-
-        reset_tree_mode(model)
-
-        return GenerationState(
-            stop_token_id=stop_token_id,
-            logits_processor=logits_processor,
-            input_ids=input_ids,
-            past_key_values=past_key_values,
-            input_len=input_ids.shape[1],
-        )
-
-    def should_stop(
-        self,
-        input_ids: torch.Tensor,
-        input_len: int,
-        new_token: int,
-        config: GenerationConfig,
-        stop_token_id: Optional[int],
-    ) -> bool:
-        """Check if generation should stop"""
-        if stop_token_id is not None and torch.any(input_ids[0, input_len:] == stop_token_id):
-            return True
-
-        if torch.any(input_ids[0, input_len:] == self.tokenizer.eos_token_id):
-            return True
-
-        if new_token > config.max_new_tokens:
-            return True
-
-        return input_ids.shape[1] > config.max_length
-
-    def get_padding_token(self, device: torch.device) -> torch.Tensor:
-        """Get or create padding token"""
-        if self._padding_token is None or self._padding_token.device != device:
-            self._padding_token = (torch.zeros(1, 1, dtype=torch.long) - 1).to(device)
-        return self._padding_token
-
-
 class Eagle3Model(nn.Module):
-    """
-    EAGLE3 Model for speculative decoding with improved structure and maintainability
-    """
-
     def __init__(
         self,
         base_model: nn.Module,
         tokenizer: AutoTokenizer,
-        eagle_layer: nn.Module,
-        early_stop_method: Optional[str] = None,
+        eagle_layer: Llama3Eagle3Drafter,
+        early_stop_method: str | None = None,
     ):
         super().__init__()
         self.base_model = base_model
@@ -242,20 +178,18 @@ class Eagle3Model(nn.Module):
     @classmethod
     def from_pretrained(
         cls,
-        base_model_path: Optional[str] = None,
-        eagle_model_path: Optional[str] = None,
-        total_token: int = 60,
+        base_model_path: str | None = None,
+        eagle_model_path: str | None = None,
+        total_tokens: int = 60,
         depth: int = 7,
         top_k: int = 10,
         threshold: float = 1.0,
         enable_benchmark: bool = False,
-        early_stop_method: Optional[str] = None,
+        early_stop_method: str | None = None,
         stop_think_token: str = "</think>",
-        step_split_tokens: Optional[List[str]] = None,
+        step_split_tokens: list[str] | None = None,
         **kwargs,
     ) -> "Eagle3Model":
-        """Create Eagle3Model from pretrained components"""
-        # Load base model and tokenizer
         logger.info(
             "Loading base model from %s, eagle model from %s",
             base_model_path,
@@ -291,7 +225,7 @@ class Eagle3Model(nn.Module):
         # TODO: Implement factory pattern for different drafter types
         eagle_layer = Llama3Eagle3Drafter(
             config,
-            total_tokens=total_token,
+            total_tokens=total_tokens,
             depth=depth,
             top_k=top_k,
             threshold=threshold,
@@ -310,9 +244,9 @@ class Eagle3Model(nn.Module):
         eagle_layer.init_tree()
 
         # Auto-select optimal token count if needed
-        if total_token == -1 and enable_benchmark:
-            total_token = PerformanceBenchmark.auto_select_total_token(base_model, config.vocab_size)
-            eagle_layer.total_tokens = total_token - 1
+        if total_tokens == -1 and enable_benchmark:
+            total_tokens = PerformanceBenchmark.auto_select_total_token(base_model, config.vocab_size)
+            eagle_layer.total_tokens = total_tokens - 1
 
         return cls(base_model, tokenizer, eagle_layer, early_stop_method)
 
@@ -322,28 +256,27 @@ class Eagle3Model(nn.Module):
 
     def forward(
         self,
-        input_ids: Optional[torch.Tensor] = None,
-        attention_mask: Optional[torch.Tensor] = None,
-        past_key_values: Optional[Any] = None,
+        input_ids: torch.Tensor | None = None,
+        attention_mask: torch.Tensor | None = None,
+        past_key_values: Any | None = None,
         output_orig: bool = False,
-        position_ids: Optional[torch.Tensor] = None,
-    ) -> Union[Tuple[Any, torch.Tensor], Tuple[Any, torch.Tensor, torch.Tensor]]:
-        """Forward pass through the model"""
+        position_ids: torch.Tensor | None = None,
+    ) -> tuple[Any, torch.Tensor] | tuple[Any, torch.Tensor, torch.Tensor]:
         with torch.inference_mode():
-            outputs = self.base_model.model(
+            outputs: BaseModelOutputWithPast = self.base_model.model(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
                 past_key_values=past_key_values,
                 position_ids=position_ids,
             )
 
-            hidden_states = outputs[0]
+            last_hidden_states = outputs.last_hidden_state
 
             if output_orig:
-                orig = self.base_model.lm_head(hidden_states)
-                return outputs, orig, hidden_states
+                orig = self.base_model.lm_head(last_hidden_states)
+                return outputs, orig, last_hidden_states
             else:
-                return outputs, hidden_states
+                return outputs, last_hidden_states
 
     @torch.no_grad()
     def eagle_generate(
@@ -357,8 +290,7 @@ class Eagle3Model(nn.Module):
         log: bool = False,
         is_llama3: bool = False,
         early_stop_smooth_type: str = "ewma",
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, int, int, List[int]]]:
-        """Generate text using EAGLE speculative decoding"""
+    ) -> torch.Tensor | tuple[torch.Tensor, int, int, list[int]]:
         config = GenerationConfig(
             temperature=temperature,
             top_p=top_p,
@@ -373,9 +305,22 @@ class Eagle3Model(nn.Module):
         padding = self.generation_manager.get_padding_token(input_ids.device)
 
         # Prefill phase
-        draft_tokens, retrieve_indices, tree_mask, tree_position_ids, logits, _, _ = initialize_tree(
-            input_ids, self, state.past_key_values, state.logits_processor
+        logger.info("*~" * 50)
+        logger.info(
+            "initialize tree input: input_ids: %s, state.past_key_values: %s, "
+            "state.logits_processor: %s",
+            input_ids.tolist(),
+            len(state.past_key_values),
+            state.logits_processor,
         )
+        draft_tokens, retrieve_indices, tree_mask, tree_position_ids, logits, _, _ = (
+            self._initialize_tree(
+                input_ids,
+                state.past_key_values,
+                state.logits_processor,
+            )
+        )
+        logger.info("*~" * 50)
 
         accept_length_list = []
         max_decode_steps = config.max_length - self.eagle_layer.total_tokens - 10
@@ -397,6 +342,7 @@ class Eagle3Model(nn.Module):
         is_thinking = True
 
         for step in range(max_decode_steps):  # noqa: B007
+            logger.info("->" * 50)
             # Ensure tensors are on correct device
             draft_tokens = draft_tokens.to(input_ids.device)
             tree_position_ids = tree_position_ids.to(input_ids.device)
@@ -412,6 +358,11 @@ class Eagle3Model(nn.Module):
                 state.input_ids,
                 retrieve_indices,
             )
+            logger.info(
+                "tree decoding: logits: %s, hidden_state_new: %s",
+                logits.shape,
+                hidden_state_new.shape,
+            )
 
             draft_tokens = torch.cat((draft_tokens, padding), dim=1)
             candidates = draft_tokens[0, retrieve_indices]
@@ -419,6 +370,12 @@ class Eagle3Model(nn.Module):
             # Verification phase
             best_candidate, accept_length, sample_token = evaluate_posterior(
                 logits, candidates, state.logits_processor
+            )
+            logger.info(
+                "evaluate_posterior: best candidate: %s, accept length: %s, sample token: %s",
+                best_candidate.tolist(),
+                accept_length.tolist(),
+                sample_token.tolist(),
             )
 
             new_token_ids = candidates[None, best_candidate, : accept_length + 1].view(-1).tolist()
@@ -481,7 +438,9 @@ class Eagle3Model(nn.Module):
                 early_stop_signal_cpu = early_stop_signal.tolist()
                 for p, s in zip(predictors, early_stop_signal_cpu):
                     p.add_score(s)
+            logger.info("self.input_ids: %s", state.input_ids.tolist())
 
+            logger.info("<-" * 50)
             if self.generation_manager.should_stop(
                 state.input_ids,
                 state.input_len,
@@ -504,7 +463,7 @@ class Eagle3Model(nn.Module):
         max_length: int = 2048,
         log: bool = False,
         is_llama3: bool = False,
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, int, int]]:
+    ) -> torch.Tensor | tuple[torch.Tensor, int, int]:
         """Generate text using naive (non-speculative) decoding"""
         config = GenerationConfig(
             temperature=temperature,
@@ -544,3 +503,205 @@ class Eagle3Model(nn.Module):
                 break
 
         return (state.input_ids, state.new_token, step) if log else state.input_ids
+
+    def _initialize_tree(self, input_ids: torch.Tensor, past_key_values, logits_processor):
+        logger.info("_initialize_tree forward: input_ids: %s <%s>", input_ids.tolist(), input_ids.shape)
+        eagle_outputs, outputs, _ = self.forward(
+            input_ids, past_key_values=past_key_values, output_orig=True
+        )
+
+        logger.info(
+            "_initialize_tree forward: outputs: %s, orig: %s", eagle_outputs.keys(), outputs.shape
+        )
+
+        if logits_processor is not None:
+            logits = outputs[:, -1]
+            logits = logits_processor(None, logits)
+            probabilities = torch.nn.functional.softmax(logits, dim=1)
+            token = torch.multinomial(probabilities, 1)
+        else:
+            token = torch.argmax(outputs[:, -1])
+            token = token[None, None]
+        # append the sampled token to input_ids
+        input_ids = torch.cat((input_ids, token.to(input_ids.device)), dim=1)
+
+        # Clone the output hidden states
+        eagle_device = next(self.eagle_layer.parameters()).device
+        if eagle_outputs["hidden_states"][0].device != eagle_device:
+            eagle_outputs["hidden_states"] = [x.to(eagle_device) for x in eagle_outputs["hidden_states"]]
+        # Concatenate the 3 layer hidden states [Early(2048) + Middle(2048) + Late(2048) = 6144]
+        hidden_states = torch.cat(eagle_outputs["hidden_states"], dim=-1)
+        draft_tokens, retrieve_indices, tree_mask, tree_position_ids, _ = self.eagle_layer.topK_generate(
+            hidden_states, input_ids, logits_processor
+        )
+        return (
+            draft_tokens,
+            retrieve_indices,
+            tree_mask,
+            tree_position_ids,
+            outputs,
+            hidden_states,
+            token,
+        )
+
+
+class GenerationManager:
+    def __init__(self, tokenizer: AutoTokenizer):
+        self.tokenizer = tokenizer
+        self._padding_token = None
+
+    def prepare_generation(
+        self, model: Eagle3Model, input_ids: torch.Tensor, config: GenerationConfig
+    ) -> GenerationState:
+        stop_token_id = None
+        if config.is_llama3:
+            stop_token_id = self.tokenizer.convert_tokens_to_ids("<|eot_id|>")
+
+        logits_processor = None
+        if config.temperature > 1e-5:
+            logits_processor = prepare_logits_processor(
+                temperature=config.temperature, top_p=config.top_p, top_k=config.top_k
+            )
+
+        input_ids = input_ids.clone()
+        model.eagle_layer.reset_kv()
+
+        if hasattr(model, "past_key_values"):
+            past_key_values = model.past_key_values
+            model.current_length_data.zero_()
+        else:
+            past_key_values, past_key_values_data, current_length_data = initialize_past_key_values(
+                model.base_model, max_length=config.max_length
+            )
+            model.past_key_values = past_key_values
+            model.past_key_values_data = past_key_values_data
+            model.current_length_data = current_length_data
+
+        reset_tree_mode(model)
+
+        return GenerationState(
+            stop_token_id=stop_token_id,
+            logits_processor=logits_processor,
+            input_ids=input_ids,
+            past_key_values=past_key_values,
+            input_len=input_ids.shape[1],
+        )
+
+    def should_stop(
+        self,
+        input_ids: torch.Tensor,
+        input_len: int,
+        new_token: int,
+        config: GenerationConfig,
+        stop_token_id: int | None,
+    ) -> bool:
+        if stop_token_id is not None and torch.any(input_ids[0, input_len:] == stop_token_id):
+            return True
+
+        if torch.any(input_ids[0, input_len:] == self.tokenizer.eos_token_id):
+            return True
+
+        if new_token > config.max_new_tokens:
+            return True
+
+        return input_ids.shape[1] > config.max_length
+
+    def get_padding_token(self, device: torch.device) -> torch.Tensor:
+        if self._padding_token is None or self._padding_token.device != device:
+            self._padding_token = (torch.zeros(1, 1, dtype=torch.long) - 1).to(device)
+        return self._padding_token
+
+
+def tree_decoding(
+    model,
+    tree_candidates,
+    past_key_values,
+    tree_position_ids,
+    input_ids,
+    retrieve_indices,
+):
+    position_ids = tree_position_ids + input_ids.shape[1]
+    if position_ids is not None and position_ids.dim() == 1:
+        position_ids = position_ids.unsqueeze(0)
+    # import pdb; pdb.set_trace()
+    outputs, tree_logits, hidden_state = model(
+        tree_candidates,
+        output_orig=True,
+        past_key_values=past_key_values,
+        position_ids=position_ids,
+    )
+
+    eagle_device = next(model.eagle_layer.parameters()).device
+    if outputs["hidden_states"][0].device != eagle_device:
+        outputs["hidden_states"] = [x.to(eagle_device) for x in outputs["hidden_states"]]
+    hidden_state = torch.cat(outputs["hidden_states"], dim=-1)
+
+    logits = tree_logits[0, retrieve_indices]
+    return logits, hidden_state, outputs
+
+
+def reset_tree_mode(
+    model,
+):
+    model.base_model.model.tree_mask = None
+    model.base_model.model.tree_mode = None
+
+
+@torch.no_grad()
+def update_inference_inputs(
+    input_ids,
+    candidates,
+    best_candidate,
+    accept_length,
+    retrieve_indices,
+    logits_processor,
+    new_token,
+    past_key_values_data_list,
+    current_length_data,
+    model: Eagle3Model,
+    hidden_state_new,
+    sample_token,
+):
+    prev_input_len = input_ids.shape[1]
+    # Map the best candidate indices to the original indices in the sequence
+    select_indices = retrieve_indices[best_candidate, : accept_length + 1] + prev_input_len
+    # Append the tokens from the best candidate to the input sequence
+    new_tokens = candidates[best_candidate, : accept_length + 1].unsqueeze(0).to(input_ids.device)
+    input_ids = torch.cat([input_ids, new_tokens], dim=-1)
+    logger.info("Add new tokens: %s ", new_tokens.tolist())
+
+    # Update the past key values based on the selected tokens
+    # Source tensor that contains relevant past information based
+    # on the selected candidate
+    for past_key_values_data in past_key_values_data_list:
+        tgt = past_key_values_data[..., select_indices.to(past_key_values_data.device), :]
+        # Destination tensor where the relevant past information will be stored
+        dst = past_key_values_data[..., prev_input_len : prev_input_len + tgt.shape[-2], :]
+        # Copy relevant past information from the source to the destination
+        dst.copy_(tgt, non_blocking=True)
+
+    # Update the current length tensor (currently only support batch size is 1)
+    current_length_data.fill_(prev_input_len + tgt.shape[-2])
+
+    retrieve_hidden_state_new = hidden_state_new[:, retrieve_indices]
+    accept_hidden_state_new = retrieve_hidden_state_new[:, best_candidate, : accept_length + 1]
+
+    draft_tokens, retrieve_indices, tree_mask, tree_position_ids, early_stop_signal = (
+        model.eagle_layer.topK_generate(
+            accept_hidden_state_new,
+            input_ids=torch.cat((input_ids, sample_token.to(input_ids.device)), dim=1),
+            logits_processor=logits_processor,
+        )
+    )
+
+    new_token += accept_length + 1
+
+    return (
+        input_ids,
+        draft_tokens,
+        retrieve_indices,
+        tree_mask,
+        tree_position_ids,
+        new_token,
+        early_stop_signal,
+    )

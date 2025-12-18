@@ -68,7 +68,7 @@ class KVCache:
         return torch.narrow(self.data, 2, 0, self.current_length)
 
 
-def initialize_past_key_values(model, max_length=2200):
+def initialize_past_key_values(model: torch.nn.Module, max_length=2200):
     """
     Initialize past key and value states for a given transformer model.
 

@@ -16,12 +16,16 @@ import json
 import math
 import os
 from abc import ABC
-from typing import Any, Optional, Tuple
+from typing import Any
 
 import torch
 from huggingface_hub import hf_hub_download
 from safetensors import safe_open
 from torch import Tensor, nn
+
+from .......utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class BaseEagle3Drafter(nn.Module, ABC):
@@ -31,12 +35,12 @@ class BaseEagle3Drafter(nn.Module, ABC):
         self,
         config: Any,
         load_emb: bool = False,
-        path: Optional[str] = None,
+        path: str | None = None,
         total_tokens: int = 63,
         depth: int = 5,
         top_k: int = 8,
         threshold: float = 1.0,
-        early_stop_method: Optional[str] = None,
+        early_stop_method: str | None = None,
     ):
         """
         Initialize the drafter model.
@@ -165,12 +169,12 @@ class BaseEagle3Drafter(nn.Module, ABC):
         self.stable_kv = None
 
     @torch.no_grad()
-    def topK_genrate(
+    def topK_generate(
         self,
         hidden_states: Tensor,
         input_ids: Tensor,
-        logits_processor: Optional[Any] = None,
-    ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+        logits_processor: Any | None = None,
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
         """
         Generate tokens using top-K speculative decoding.
 
@@ -186,8 +190,14 @@ class BaseEagle3Drafter(nn.Module, ABC):
             - tree_mask: Mask for tree attention
             - tree_position_ids: Position IDs in the tree
         """
+        logger.info(
+            "_initialize_tree topK_generate hidden_states: %s, input_ids: %s <%s>",
+            hidden_states.shape,
+            input_ids.tolist(),
+            input_ids.shape,
+        )
         # Initialize data structures
-        scores_list = []
+        logprobs_list = []
         parents_list = []
         ss_token = []
 
@@ -200,13 +210,15 @@ class BaseEagle3Drafter(nn.Module, ABC):
         self.reset()
 
         # Generate initial hidden states and tokens
-        last_hidden, past_key_values, early_stop_signal = self._get_initial_hidden(hidden_states, input_ids)
+        last_hidden, past_key_values, early_stop_signal = self._get_initial_hidden(
+            hidden_states, input_ids
+        )
         self.stable_kv = past_key_values
 
         # Generate first level of tokens
-        topk_index, scores = self._get_topk_tokens(last_hidden)
-        scores_list.append(scores[None])
-        parents_list.append(torch.zeros(1, dtype=torch.long, device=scores.device))
+        topk_index, logprobs = self._get_topk_tokens(last_hidden)
+        logprobs_list.append(logprobs.unsqueeze(0))
+        parents_list.append(torch.zeros(1, dtype=torch.long, device=logprobs.device))
 
         # Handle vocabulary mapping if needed
         if self.config.vocab_size == self.config.draft_vocab_size:
@@ -224,33 +236,53 @@ class BaseEagle3Drafter(nn.Module, ABC):
 
         # Traverse the tree depth levels
         for i in range(self.depth):
-            (
-                tree_mask,
-                input_hidden,
-                input_ids,
-                scores,
-                topk_cs_index,
-                past_key_values,
-            ) = self._process_tree_level(
-                i,
-                tree_mask,
-                input_hidden,
-                input_ids,
-                scores,
-                topk_cs_index,
-                scores_list,
-                parents_list,
-                ss_token,
-                past_key_values,
+            logger.info("=" * 80)
+            # logger.info(
+            #     "tree level %s: \n tree_mask: %s, \n input_hidden: %s, \n input_ids: %s, "
+            #     "\n logprobs: %s, \n topk_cs_index: %s, \n logprobs_list: %s, "
+            #     "\n parents_list: %s, \n ss_token: %s",
+            #     i,
+            #     tree_mask.shape,
+            #     input_hidden.shape,
+            #     input_ids.tolist(),
+            #     logprobs.tolist(),
+            #     topk_cs_index.tolist(),
+            #     logprobs_list,
+            #     parents_list,
+            #     ss_token,
+            # )
+            (tree_mask, input_hidden, input_ids, logprobs, topk_cs_index, past_key_values) = (
+                self._process_tree_level(
+                    i,
+                    tree_mask,
+                    input_hidden,
+                    input_ids,
+                    logprobs,
+                    topk_cs_index,
+                    logprobs_list,
+                    parents_list,
+                    ss_token,
+                    past_key_values,
+                )
             )
+
+        logger.info("=" * 80)
         # Process the final results
         draft_tokens, retrieve_indices, tree_mask, tree_position_ids = self._finalize_results(
-            scores_list, ss_token, sample_token, parents_list, logits_processor
+            logprobs_list, ss_token, sample_token, parents_list, logits_processor
         )
 
         # Delete some used lists and variables to free memory
-        del scores_list, parents_list, ss_token
+        del logprobs_list, parents_list, ss_token
 
+        logger.info(
+            "_initialize_tree topK_generate: \n draft_tokens: %s \n retrieve_indices: %s "
+            "\n tree_mask: %s \n tree_position_ids: %s",
+            draft_tokens.tolist(),
+            retrieve_indices.tolist(),
+            tree_mask,
+            tree_position_ids.tolist(),
+        )
         return (
             draft_tokens,
             retrieve_indices,
@@ -259,8 +291,12 @@ class BaseEagle3Drafter(nn.Module, ABC):
             early_stop_signal,
         )
 
-    def _get_initial_hidden(self, hidden_states: Tensor, input_ids: Tensor) -> Tuple[Tensor, Any]:
-        """Get initial hidden states and past key values."""
+    def _get_initial_hidden(self, hidden_states: Tensor, input_ids: Tensor) -> tuple[Tensor, Any]:
+        logger.info(
+            "_get_initial_hidden inputs: hidden_states: %s, input_ids: %s",
+            hidden_states.shape,
+            input_ids.shape,
+        )
         if hasattr(self, "stable_kv") and self.stable_kv is not None:
             kv_len = self.stable_kv[0][0].shape[2]
             outputs = self(
@@ -272,10 +308,15 @@ class BaseEagle3Drafter(nn.Module, ABC):
         else:
             outputs = self(hidden_states, input_ids=input_ids, use_cache=True)
         out_hidden, past_key_values, early_stop_signal = outputs
+        last_hidden = out_hidden[:, -1]
+        logger.info(
+            "_get_initial_hidden outputs: last_hidden: %s, early_stop_signal: %s",
+            last_hidden.shape,
+            early_stop_signal,
+        )
+        return last_hidden, past_key_values, early_stop_signal
 
-        return out_hidden[:, -1], past_key_values, early_stop_signal
-
-    def _get_topk_tokens(self, hidden: Tensor) -> Tuple[Tensor, Tensor]:
+    def _get_topk_tokens(self, hidden: Tensor) -> tuple[Tensor, Tensor]:
         """Get top-k tokens from hidden states."""
         logits = self.lm_head(self.norm(hidden))
         probs = self.logsoftmax(logits)
@@ -288,13 +329,13 @@ class BaseEagle3Drafter(nn.Module, ABC):
         tree_mask: Tensor,
         input_hidden: Tensor,
         input_ids: Tensor,
-        scores: Tensor,
+        logprobs: Tensor,
         topk_cs_index: Tensor,
-        scores_list: list,
+        logprobs_list: list,
         parents_list: list,
         ss_token: list,
         past_key_values,
-    ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         """Process one level of the speculative decoding tree."""
         self.tree_mask = tree_mask
         position_ids = self.position_ids + self.initial_position_id
@@ -318,11 +359,11 @@ class BaseEagle3Drafter(nn.Module, ABC):
 
         # Get top-k tokens for this level
         topk_index, topk_p = self._get_topk_tokens(out_hidden[0])
-        cu_scores = topk_p + scores[:, None]
+        cu_logprobs = topk_p + logprobs[:, None]
 
         # Select best candidates
-        topk_cs = torch.topk(cu_scores.view(-1), self.top_k, dim=-1)
-        topk_cs_index, scores = topk_cs.indices, topk_cs.values
+        topk_cs = torch.topk(cu_logprobs.view(-1), self.top_k, dim=-1)
+        topk_cs_index, logprobs = topk_cs.indices, topk_cs.values
 
         # Update data structures
         out_ids = topk_cs_index // self.top_k
@@ -336,34 +377,33 @@ class BaseEagle3Drafter(nn.Module, ABC):
             input_ids = input_ids + self.d2t[input_ids]
             ss_token.append(topk_index + self.d2t[topk_index])
 
-        scores_list.append(cu_scores)
+        logprobs_list.append(cu_logprobs)
         tree_mask = torch.cat((tree_mask[:, :, out_ids], self.tree_mask_init), dim=3)
 
         return (
             tree_mask,
             input_hidden,
             input_ids,
-            scores,
+            logprobs,
             topk_cs_index,
             past_key_values,
         )
 
     def _finalize_results(
         self,
-        scores_list: list,
+        logprobs_list: list,
         ss_token: list,
         sample_token: Tensor,
         parents_list: list,
-        logits_processor: Optional[Any],
-    ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+        logits_processor: Any | None,
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
         """Finalize the speculative decoding results."""
-        # Combine all scores and tokens
-        all_scores = torch.cat(scores_list, dim=0).view(-1)
+        all_logprobs = torch.cat(logprobs_list, dim=0).view(-1)
         all_tokens = torch.cat(ss_token, dim=0).view(-1)
 
         # Select top tokens
-        top_scores = torch.topk(all_scores, self.total_tokens, dim=-1)
-        top_indices = torch.sort(top_scores.indices).values
+        top_logprobs = torch.topk(all_logprobs, self.total_tokens, dim=-1)
+        top_indices = torch.sort(top_logprobs.indices).values
         draft_tokens = all_tokens[top_indices]
         draft_tokens = torch.cat((sample_token, draft_tokens), dim=0)
 
@@ -379,8 +419,7 @@ class BaseEagle3Drafter(nn.Module, ABC):
 
         return draft_tokens[None], retrieve_indices, tree_mask, tree_position_ids
 
-    def _build_tree_mask(self, top_indices: Tensor, parents_list: list) -> Tuple[Tensor, Tensor]:
-        """Build the tree attention mask and position IDs."""
+    def _build_tree_mask(self, top_indices: Tensor, parents_list: list) -> tuple[Tensor, Tensor]:
         all_parents = torch.cat(parents_list, dim=0)[top_indices // self.top_k].long()
 
         # Find parent-child relationships

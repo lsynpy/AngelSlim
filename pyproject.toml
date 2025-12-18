@@ -7,7 +7,7 @@ name = "angelslim"
 dynamic = ["version"]
 description = "A toolkit for compress llm model."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = {text = "Apache Software License"}
 authors = [
     {name = "Tencent Author"},
@@ -137,7 +137,7 @@ ignore = [
 docstring-code-format = true
 
 [tool.ruff]
-line-length = 108
+line-length = 105
 
 [tool.typos.files]
 # these files may be written in non english words
